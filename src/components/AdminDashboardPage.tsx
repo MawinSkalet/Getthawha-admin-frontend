@@ -58,6 +58,11 @@ const AdminDashboardPage = () => {
     () => selectedTrendYear.toString()
   );
 
+  const [lastUpdated, setLastUpdated] = useState<string>("");
+  useEffect(() => {
+    setLastUpdated(new Date().toLocaleString());
+  }, []);
+
   useEffect(() => {
     setTrendYearDraft(selectedTrendYear.toString());
   }, [selectedTrendYear]);
@@ -151,8 +156,8 @@ const AdminDashboardPage = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <div className="text-sm text-gray-500">
-            Last updated: {new Date().toLocaleString()}
+          <div className="text-sm text-gray-500" suppressHydrationWarning>
+            Last updated: {lastUpdated}
           </div>
         </div>
 
