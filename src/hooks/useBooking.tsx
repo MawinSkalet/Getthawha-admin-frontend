@@ -1,5 +1,6 @@
 import type IBooking from "@/interfaces/IBooking";
 import type IErrorResponse from "@interfaces/IErrorResponse";
+import { getBaseUrl } from "@/lib/api";
 
 type UpdateBookingRequest = {
   userId: string;
@@ -12,7 +13,7 @@ type UpdateBookingRequest = {
 
 async function getAllBooking(page = 1, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/booking?page=${page}`,
+    `${getBaseUrl()}/admin/booking?page=${page}`,
     {
       method: "GET",
       signal: abortSignal,
@@ -41,7 +42,7 @@ async function createBooking(
   const toISOZ = (d: Date) => d.toISOString();
 
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/booking`,
+    `${getBaseUrl()}/admin/booking`,
     {
       method: "POST",
       headers: {
@@ -94,7 +95,7 @@ async function updateBookingById(
   };
 
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/booking/${bookingId}`,
+    `${getBaseUrl()}/admin/booking/${bookingId}`,
     {
       method: "PUT",
       headers: {

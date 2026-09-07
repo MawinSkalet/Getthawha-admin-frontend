@@ -1,3 +1,5 @@
+import { getBaseUrl } from "@/lib/api";
+
 export async function uploadImage(
   file: File,
   opts?: { fieldName?: string; signal?: AbortSignal }
@@ -6,7 +8,7 @@ export async function uploadImage(
   const formData = new FormData();
   formData.append(fieldName, file);
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/upload`, {
+  const res = await fetch(`${getBaseUrl()}/upload`, {
     method: "POST",
     body: formData,
     credentials: "include",

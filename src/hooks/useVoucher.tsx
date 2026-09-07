@@ -1,10 +1,11 @@
 import IVoucher from "@/interfaces/IVoucher";
 import IVoucherInput from "@/interfaces/IVoucherInput";
 import type IErrorResponse from "@interfaces/IErrorResponse";
+import { getBaseUrl } from "@/lib/api";
 
 async function getAllVouchers(abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/voucher`,
+    `${getBaseUrl()}/admin/voucher`,
     {
       method: "GET",
       signal: abortSignal,
@@ -23,7 +24,7 @@ async function getAllVouchers(abortSignal: AbortSignal) {
 
 async function createVoucher(voucher: IVoucherInput, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/voucher`,
+    `${getBaseUrl()}/admin/voucher`,
     {
       method: "POST",
       headers: {
@@ -54,7 +55,7 @@ async function updateVoucher(
   abortSignal: AbortSignal
 ) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/voucher/${id}`,
+    `${getBaseUrl()}/admin/voucher/${id}`,
     {
       method: "PUT",
       headers: {
@@ -82,7 +83,7 @@ async function updateVoucher(
 
 async function deleteVoucher(id: string, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/voucher/${id}`,
+    `${getBaseUrl()}/admin/voucher/${id}`,
     {
       method: "DELETE",
       signal: abortSignal,

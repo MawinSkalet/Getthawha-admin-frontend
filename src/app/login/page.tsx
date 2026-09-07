@@ -8,6 +8,7 @@ import {
   setEmail,
   setUsername as setUsernameRedux,
 } from "@stores/userSlice";
+import { getBaseUrl } from "@/lib/api";
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState("");
@@ -26,7 +27,7 @@ const LoginPage: React.FC = () => {
       return;
     }
 
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/auth/login`, {
+    fetch(`${getBaseUrl()}/admin/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

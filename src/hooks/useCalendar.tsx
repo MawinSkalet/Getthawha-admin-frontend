@@ -1,6 +1,7 @@
 import type IBooking from "@/interfaces/IBooking";
 import type IErrorResponse from "@interfaces/IErrorResponse";
 import type IDailyBookingsStatus from "@interfaces/IDailyBookingsStatus";
+import { getBaseUrl } from "@/lib/api";
 
 async function getBookingByDate(
   day: number,
@@ -10,7 +11,7 @@ async function getBookingByDate(
 ) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/calendar/date/${day}/${month}/${year}`,
+      `${getBaseUrl()}/admin/calendar/date/${day}/${month}/${year}`,
       {
         method: "GET",
         signal: abortSignal,
@@ -48,7 +49,7 @@ async function getDailyBookingsStatus(
 ) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/calendar/${year}/${month}`,
+      `${getBaseUrl()}/admin/calendar/${year}/${month}`,
       {
         method: "GET",
         signal: abortSignal,

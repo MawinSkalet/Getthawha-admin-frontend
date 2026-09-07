@@ -3,6 +3,7 @@ import "./globals.css";
 import { cookies } from "next/headers";
 import React from "react";
 import ClientProvider from "./ClientProvider";
+import { getBaseUrl } from "@/lib/api";
 
 export const metadata: Metadata = {
   title: "Getthawha",
@@ -21,7 +22,7 @@ export default async function RootLayout({
   if (token) {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/auth/info`,
+        `${getBaseUrl()}/admin/auth/info`,
         {
           method: "GET",
           headers: {

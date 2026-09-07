@@ -1,10 +1,11 @@
 import IPackage from "@/interfaces/IPackage";
 import IPackageInput from "@/interfaces/IPackageInput";
 import type IErrorResponse from "@interfaces/IErrorResponse";
+import { getBaseUrl } from "@/lib/api";
 
 async function getAllPackages(abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/package`,
+    `${getBaseUrl()}/admin/package`,
     {
       method: "GET",
       signal: abortSignal,
@@ -26,7 +27,7 @@ async function createPackage(
   abortSignal: AbortSignal
 ) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/package`,
+    `${getBaseUrl()}/admin/package`,
     {
       method: "POST",
       headers: {
@@ -55,7 +56,7 @@ async function updatePackage(
   abortSignal: AbortSignal
 ) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/package/${id}`,
+    `${getBaseUrl()}/admin/package/${id}`,
     {
       method: "PUT",
       headers: {
@@ -81,7 +82,7 @@ async function updatePackage(
 
 async function deletePackage(id: string, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/package/${id}`,
+    `${getBaseUrl()}/admin/package/${id}`,
     {
       method: "DELETE",
       signal: abortSignal,

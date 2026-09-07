@@ -1,10 +1,11 @@
 import type IBranch from "@interfaces/IBranch";
 import type IErrorResponse from "@interfaces/IErrorResponse";
 import type IBranchInput from "@interfaces/IBranchInput";
+import { getBaseUrl } from "@/lib/api";
 
 async function getAllBranch(abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/branch`,
+    `${getBaseUrl()}/admin/branch`,
     {
       method: "GET",
       signal: abortSignal,
@@ -23,7 +24,7 @@ async function getAllBranch(abortSignal: AbortSignal) {
 
 async function createBranch(branch: IBranchInput, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/branch`,
+    `${getBaseUrl()}/admin/branch`,
     {
       method: "POST",
       headers: {
@@ -62,7 +63,7 @@ async function updateBranch(
   abortSignal: AbortSignal
 ) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/branch/${id}`,
+    `${getBaseUrl()}/admin/branch/${id}`,
     {
       method: "PUT",
       headers: {
@@ -98,7 +99,7 @@ async function updateBranch(
 
 async function deleteBranch(id: string, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/branch/${id}`,
+    `${getBaseUrl()}/admin/branch/${id}`,
     {
       method: "DELETE",
       signal: abortSignal,

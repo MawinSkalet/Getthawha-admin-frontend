@@ -1,4 +1,5 @@
 import type IErrorResponse from "@/interfaces/IErrorResponse";
+import { getBaseUrl } from "@/lib/api";
 
 interface ILogoutSuccess {
   success: true;
@@ -9,7 +10,7 @@ type LogoutResponse = ILogoutSuccess | IErrorResponse;
 
 async function logout(abortSignal?: AbortSignal): Promise<LogoutResponse> {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/auth/logout`,
+    `${getBaseUrl()}/admin/auth/logout`,
     {
       method: "POST",
       credentials: "include",

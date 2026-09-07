@@ -1,5 +1,6 @@
 import type IReview from "@interfaces/IReview";
 import type IErrorResponse from "@interfaces/IErrorResponse";
+import { getBaseUrl } from "@/lib/api";
 
 type ReviewStatusFilter = "approved" | "pending";
 
@@ -15,7 +16,7 @@ async function getReviews(
 ) {
   const query = status ? `?status=${status}` : "";
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/review${query}`,
+    `${getBaseUrl()}/admin/review${query}`,
     {
       method: "GET",
       signal: abortSignal,
@@ -38,7 +39,7 @@ async function updateReviewApproval(
   abortSignal: AbortSignal
 ) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/review/${id}/approval`,
+    `${getBaseUrl()}/admin/review/${id}/approval`,
     {
       method: "PATCH",
       headers: {
@@ -66,7 +67,7 @@ async function updateReviewApproval(
 
 async function deleteReview(id: string, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/review/${id}`,
+    `${getBaseUrl()}/admin/review/${id}`,
     {
       method: "DELETE",
       signal: abortSignal,

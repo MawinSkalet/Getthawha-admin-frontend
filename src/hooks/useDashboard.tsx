@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getBookingByDate } from "@/hooks/useCalendar";
 import type IBooking from "@/interfaces/IBooking";
+import { getBaseUrl } from "@/lib/api";
 
 // Types
 type Statistics = {
@@ -107,7 +108,7 @@ async function fetchRegistrationActivities(
 ): Promise<ActivityItem[]> {
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/dashboard/recent-activity/${day}/${month}/${year}`,
+      `${getBaseUrl()}/admin/dashboard/recent-activity/${day}/${month}/${year}`,
       {
         method: "GET",
         credentials: "include",
@@ -275,7 +276,7 @@ export default function useDashboard() {
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
       const statsResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/dashboard`,
+        `${getBaseUrl()}/admin/dashboard`,
         {
           method: "GET",
           headers: { "Content-Type": "application/json" },
@@ -302,7 +303,7 @@ export default function useDashboard() {
           ? `?year=${Math.floor(trendYearValue)}`
           : "";
       const monthlyResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/dashboard/trending${trendYearQuery}`,
+        `${getBaseUrl()}/admin/dashboard/trending${trendYearQuery}`,
         {
           method: "GET",
           headers: { "Content-Type": "application/json" },
@@ -339,7 +340,7 @@ export default function useDashboard() {
       }
 
       const branchResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/dashboard/branch-performance`,
+        `${getBaseUrl()}/admin/dashboard/branch-performance`,
         {
           method: "GET",
           headers: { "Content-Type": "application/json" },

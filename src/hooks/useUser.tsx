@@ -1,5 +1,6 @@
 import type IUser from "@/interfaces/IUser";
 import type IErrorResponse from "@interfaces/IErrorResponse";
+import { getBaseUrl } from "@/lib/api";
 
 const USER_PAGE_LIMIT = 10;
 
@@ -8,7 +9,7 @@ async function getAllUsers(
   abortSignal: AbortSignal
 ): Promise<IUser[] | IErrorResponse> {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/user?page=${page}`,
+    `${getBaseUrl()}/admin/user?page=${page}`,
     {
       method: "GET",
       signal: abortSignal,
@@ -27,7 +28,7 @@ async function getAllUsers(
 
 async function getUserById(userId: string, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/user/${userId}`,
+    `${getBaseUrl()}/admin/user/${userId}`,
     {
       method: "GET",
       signal: abortSignal,
@@ -50,7 +51,7 @@ async function getUserById(userId: string, abortSignal: AbortSignal) {
 
 async function searchUser(displayName: string, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/user/search?query=${displayName}`,
+    `${getBaseUrl()}/admin/user/search?query=${displayName}`,
     {
       method: "GET",
       signal: abortSignal,

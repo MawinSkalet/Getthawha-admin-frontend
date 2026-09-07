@@ -1,6 +1,7 @@
 import type IErrorResponse from "@interfaces/IErrorResponse";
 import IStaff from "@/interfaces/IStaff";
 import IStaffInput from "@/interfaces/IStaffInput";
+import { getBaseUrl } from "@/lib/api";
 
 type StaffApiUser = {
   id: string;
@@ -13,7 +14,7 @@ type StaffApiUser = {
 
 async function getAllStaff(abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/auth`,
+    `${getBaseUrl()}/admin/auth`,
     {
       method: "GET",
       signal: abortSignal,
@@ -57,7 +58,7 @@ async function getAllStaff(abortSignal: AbortSignal) {
 
 async function createStaff(staff: IStaffInput, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/auth/register`,
+    `${getBaseUrl()}/admin/auth/register`,
     {
       method: "POST",
       headers: {
@@ -106,7 +107,7 @@ async function createStaff(staff: IStaffInput, abortSignal: AbortSignal) {
 
 async function deleteStaff(id: string, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/auth/delete/${id}`,
+    `${getBaseUrl()}/admin/auth/delete/${id}`,
     {
       method: "DELETE",
       signal: abortSignal,
