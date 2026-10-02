@@ -37,7 +37,8 @@ async function createBooking(
   date: Date,
   userId: string,
   voucherId: string | null,
-  abortSignal: AbortSignal
+  abortSignal: AbortSignal,
+  customerPhone?: string
 ) {
   // Use ISO 8601 in UTC with Z to match backend schema
   const toISOZ = (d: Date) => d.toISOString();
@@ -55,6 +56,7 @@ async function createBooking(
         date: toISOZ(date),
         userId,
         voucherId,
+        customerPhone: customerPhone?.trim() || undefined,
       }),
       signal: abortSignal,
       credentials: "include",

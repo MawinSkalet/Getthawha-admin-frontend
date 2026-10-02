@@ -80,25 +80,25 @@ export default function AdminNavbar() {
 
   return (
     <>
-      <div className="navbar bg-base-100 shadow-sm sticky top-0 z-50">
+      <div className="navbar sticky top-0 z-50 border-b border-[#D6A944]/30 bg-[#3B261C] text-[#FBF7EE] shadow-md">
         <div className="flex-1">
           <div className="dropdown">
             <div
               tabIndex={0}
-              className="btn btn-ghost text-lg roboto-600"
+              className="btn btn-ghost text-lg text-[#FBF7EE] roboto-600 hover:bg-white/10 hover:text-white"
               role="button"
             >
               {getPageTitle()}
             </div>
             <ul
               tabIndex={0}
-              className="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm"
+              className="dropdown-content menu rounded-box z-1 w-52 border border-[#E9DFCE] bg-[#FBF7EE] p-2 text-[#2D211A] shadow-lg"
             >
               <li>
                 <Link href="/">
                   <div
                     className={`flex flex-row gap-2 ${
-                      pathname === "/" && "text-primary"
+                      pathname === "/" && "text-[#8A6418] font-semibold"
                     }`}
                   >
                     <svg
@@ -124,7 +124,7 @@ export default function AdminNavbar() {
                 <Link href="/reviewManagement">
                   <div
                     className={`flex flex-row gap-2 ${
-                      pathname === "/reviewManagement" && "text-primary"
+                      pathname === "/reviewManagement" && "text-[#8A6418] font-semibold"
                     }`}
                   >
                     <svg
@@ -150,7 +150,7 @@ export default function AdminNavbar() {
                 <Link href="/bookingCalendar">
                   <div
                     className={`flex flex-row gap-2 ${
-                      pathname === "/bookingCalendar" && "text-primary"
+                      pathname === "/bookingCalendar" && "text-[#8A6418] font-semibold"
                     }`}
                   >
                     <svg
@@ -176,7 +176,7 @@ export default function AdminNavbar() {
                 <Link href="/userList">
                   <div
                     className={`flex flex-row gap-2 ${
-                      pathname === "/userList" && "text-primary"
+                      pathname === "/userList" && "text-[#8A6418] font-semibold"
                     }`}
                   >
                     <svg
@@ -202,7 +202,7 @@ export default function AdminNavbar() {
                   {" "}
                   <div
                     className={`flex flex-row gap-2 ${
-                      pathname === "/manualBooking" && "text-primary"
+                      pathname === "/manualBooking" && "text-[#8A6418] font-semibold"
                     }`}
                   >
                     <svg
@@ -228,7 +228,7 @@ export default function AdminNavbar() {
                 <Link href="/branchManagement">
                   <div
                     className={`flex flex-row gap-2 ${
-                      pathname === "/branchManagement" && "text-primary"
+                      pathname === "/branchManagement" && "text-[#8A6418] font-semibold"
                     }`}
                   >
                     <svg
@@ -254,7 +254,7 @@ export default function AdminNavbar() {
                 <Link href="/packageManagement">
                   <div
                     className={`flex flex-row gap-2 ${
-                      pathname === "/packageManagement" && "text-primary"
+                      pathname === "/packageManagement" && "text-[#8A6418] font-semibold"
                     }`}
                   >
                     <svg
@@ -280,7 +280,7 @@ export default function AdminNavbar() {
                 <Link href="/staffManagement">
                   <div
                     className={`flex flex-row gap-2 ${
-                      pathname === "/staffManagement" && "text-primary"
+                      pathname === "/staffManagement" && "text-[#8A6418] font-semibold"
                     }`}
                   >
                     <svg
@@ -306,7 +306,7 @@ export default function AdminNavbar() {
                 <Link href="/voucherManagement">
                   <div
                     className={`flex flex-row gap-2 ${
-                      pathname === "/voucherManagement" && "text-primary"
+                      pathname === "/voucherManagement" && "text-[#8A6418] font-semibold"
                     }`}
                   >
                     <svg
@@ -335,7 +335,7 @@ export default function AdminNavbar() {
             <div
               tabIndex={0}
               role="button"
-              className="btn btn-ghost btn-circle avatar"
+              className="btn btn-ghost btn-circle avatar text-[#FBF7EE] hover:bg-white/10"
             >
               <div className="w-10 rounded-full overflow-hidden">
                 <Image
@@ -350,7 +350,7 @@ export default function AdminNavbar() {
             </div>
             <ul
               tabIndex={0}
-              className="menu menu-sm dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow"
+              className="menu menu-sm dropdown-content rounded-box z-1 mt-3 w-52 border border-[#E9DFCE] bg-[#FBF7EE] p-2 text-[#2D211A] shadow-lg"
             >
               <li>
                 <button
@@ -361,7 +361,7 @@ export default function AdminNavbar() {
                 >
                   <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
                   {isLoggingOut && (
-                    <span className="loading loading-spinner loading-xs text-primary" />
+                    <span className="loading loading-spinner loading-xs text-[#B9892C]" />
                   )}
                 </button>
               </li>

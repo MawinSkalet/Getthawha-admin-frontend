@@ -160,12 +160,12 @@ async function fetchRegistrationActivities(
   }
 }
 
-async function fetchBookingActivities(
+async function fetchBookingData(
   day: number,
   month: number,
   year: number,
   abortSignal?: AbortSignal
-): Promise<ActivityItem[]> {
+): Promise<{ bookings: IBooking[]; activities: ActivityItem[] }> {
   try {
     const signal = abortSignal ?? new AbortController().signal;
     const response = await getBookingByDate(day, month, year, signal);
@@ -173,7 +173,7 @@ async function fetchBookingActivities(
       ? response.data
       : [];
 
-    return bookings.slice(0, 10).map((booking, index) => {
+    const activities: ActivityItem[] = bookings.slice(0, 10).map((booking, index) => {
       const id = booking.id || `booking-${index}-${Date.now()}`;
       const customerName = booking.user?.displayName || "Customer";
       const packageTitle = booking.package?.title
@@ -191,11 +191,12 @@ async function fetchBookingActivities(
         time,
       };
     });
+    return { bookings, activities };
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") {
       throw error;
     }
-    return [];
+    return { bookings: [], activities: [] };
   }
 }
 
@@ -243,6 +244,7 @@ export default function useDashboard() {
   ]);
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [bookingsForDate, setBookingsForDate] = useState<IBooking[]>([]);
   const [loadingActivities, setLoadingActivities] = useState<boolean>(true);
 
   const nowRef = useRef(new Date());
@@ -379,7 +381,7 @@ export default function useDashboard() {
     setLoadingActivities(true);
     try {
       const { day, month, year } = selectedActivityDateRef.current;
-      const activitiesForToday = await getRecentActivityByDate(
+      const dashboardDateData = await getDashboardDateData(
         day,
         month,
         year,
@@ -387,9 +389,11 @@ export default function useDashboard() {
       );
 
       if (signal?.aborted || !mountedRef.current) return;
-      setActivities(activitiesForToday);
+      setBookingsForDate(dashboardDateData.bookings);
+      setActivities(dashboardDateData.activities);
     } catch {
       if (signal?.aborted || !mountedRef.current) return;
+      setBookingsForDate([]);
       setActivities([]);
     } finally {
       if (signal?.aborted || !mountedRef.current) return;
@@ -489,21 +493,25 @@ export default function useDashboard() {
       activityControllerRef.current?.abort();
       const controller = new AbortController();
       activityControllerRef.current = controller;
+      setBookingsForDate([]);
+      setActivities([]);
       setLoadingActivities(true);
       try {
-        const activitiesForDay = await getRecentActivityByDate(
+        const dashboardDateData = await getDashboardDateData(
           nextDate.day,
           nextDate.month,
           nextDate.year,
           controller.signal
         );
         if (!mountedRef.current || controller.signal.aborted) return;
-        setActivities(activitiesForDay);
+        setBookingsForDate(dashboardDateData.bookings);
+        setActivities(dashboardDateData.activities);
       } catch (error: unknown) {
         if (!mountedRef.current) return;
         if (error instanceof Error && error.name === "AbortError") {
           return;
         }
+        setBookingsForDate([]);
         setActivities([]);
       } finally {
         if (activityControllerRef.current === controller) {
@@ -521,6 +529,7 @@ export default function useDashboard() {
     monthlyTrend,
     branchPerformance,
     activities,
+    bookingsForDate,
     loadingActivities,
     reload,
     loadRecentActivityByDate,
@@ -537,6 +546,16 @@ export async function getRecentActivityByDate(
   year: number | string,
   abortSignal?: AbortSignal
 ): Promise<ActivityItem[]> {
+  const dateData = await getDashboardDateData(day, month, year, abortSignal);
+  return dateData.activities;
+}
+
+export async function getDashboardDateData(
+  day: number | string,
+  month: number | string,
+  year: number | string,
+  abortSignal?: AbortSignal
+): Promise<{ bookings: IBooking[]; activities: ActivityItem[] }> {
   const dayNumber = Number(day);
   const monthNumber = Number(month);
   const yearNumber = Number(year);
@@ -546,12 +565,12 @@ export async function getRecentActivityByDate(
     Number.isNaN(monthNumber) ||
     Number.isNaN(yearNumber)
   ) {
-    return [];
+    return { bookings: [], activities: [] };
   }
 
   try {
-    const [bookingActivities, registrationActivities] = await Promise.all([
-      fetchBookingActivities(dayNumber, monthNumber, yearNumber, abortSignal),
+    const [bookingData, registrationActivities] = await Promise.all([
+      fetchBookingData(dayNumber, monthNumber, yearNumber, abortSignal),
       fetchRegistrationActivities(
         dayNumber,
         monthNumber,
@@ -560,11 +579,14 @@ export async function getRecentActivityByDate(
       ),
     ]);
 
-    return mergeActivities(bookingActivities, registrationActivities);
+    return {
+      bookings: bookingData.bookings,
+      activities: mergeActivities(bookingData.activities, registrationActivities),
+    };
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") {
       throw error;
     }
-    return [];
+    return { bookings: [], activities: [] };
   }
 }
