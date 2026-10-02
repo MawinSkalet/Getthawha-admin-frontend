@@ -41,11 +41,12 @@ const ReviewManagement = () => {
   // Derived view state
   const filteredReviews = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
+    const matchingStatus = reviews.filter(review => statusFilter === "all" || review.isApproved === (statusFilter === "approved"));
     if (!query) {
-      return reviews;
+      return matchingStatus;
     }
 
-    return reviews.filter((review) => {
+    return matchingStatus.filter((review) => {
       const userName = review.user?.displayName?.toLowerCase() ?? "";
       const branchName = review.branch?.name?.toLowerCase() ?? "";
       const comment = review.comment?.toLowerCase() ?? "";
@@ -56,7 +57,7 @@ const ReviewManagement = () => {
         comment.includes(query)
       );
     });
-  }, [reviews, searchTerm]);
+  }, [reviews, searchTerm, statusFilter]);
 
   const totalReviews = filteredReviews.length;
   const approvedCount = filteredReviews.filter((review) => review.isApproved).length;
