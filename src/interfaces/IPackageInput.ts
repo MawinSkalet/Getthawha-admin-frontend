@@ -6,4 +6,6 @@ export default interface IPackageInput {
   duration: number; // in minutes
   pictureUrl: string | null;
   note: string | null;
+  category?: string | null;
+  isActive?: boolean;
 }

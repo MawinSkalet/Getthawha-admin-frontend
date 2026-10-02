@@ -1,1131 +1,784 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import AdminNavbar from "@/components/AdminNavBar";
 import {
+  deletePackageGroup,
   getAllPackages,
-  createPackage,
-  updatePackage,
-  deletePackage,
+  savePackageGroup,
 } from "@/hooks/usePackage";
 import { uploadImage } from "@/hooks/useUpload";
 import type IPackage from "@/interfaces/IPackage";
-import type IPackageInput from "@/interfaces/IPackageInput";
-import type IErrorResponse from "@/interfaces/IErrorResponse";
+import type IPackageGroupInput from "@/interfaces/IPackageGroupInput";
+import type IErrorResponse from "@interfaces/IErrorResponse";
 import {
-  CubeIcon,
-  CurrencyDollarIcon,
+  CheckCircleIcon,
   ClockIcon,
+  CurrencyDollarIcon,
+  ExclamationTriangleIcon,
+  MagnifyingGlassIcon,
+  PencilIcon,
   PhotoIcon,
   PlusIcon,
-  PencilIcon,
   TrashIcon,
   XMarkIcon,
-  MagnifyingGlassIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 
-interface PackageFormData {
-  id?: string;
-  type: "service" | "promotion";
+const DURATIONS = [60, 90, 120] as const;
+type Duration = (typeof DURATIONS)[number];
+type PackageType = "service" | "promotion";
+type VisibilityFilter = "active" | "hidden" | "all";
+
+const MENU_CATEGORIES = [
+  "Thai Massage",
+  "Foot Massage",
+  "Head, Back & Shoulder Massage",
+  "Nourishing Treatment Massage",
+  "Traditional Lanna Massage",
+  "The Best Massage",
+  "Premium Experience",
+  "Other",
+] as const;
+
+const MENU_ITEM_ORDER = [
+  "นวดไทย (thai massage)",
+  "นวดไทยใส่ยาหม่อง (thai massage + herbal balm)",
+  "นวดไทยใส่น้ำมัน (thai massage + oil)",
+  "นวดไทยล้านนา ประคบสมุนไพร (thai lanna massage with herbal compress)",
+  "นวดเท้า (foot massage)",
+  "นวดเท้าใส่ยาหม่อง (foot massage + herbal balm)",
+  "นวดเท้า คอ หัว ไหล่ (foot massage + head + shoulder)",
+  "นวดเท้า หลัง ไหล่ ศีรษะ (foot massage + back + head + shoulder)",
+  "นวดหลังไหล่ (back + shoulder massage)",
+  "นวดศีรษะ หลัง ไหล่ (head, back & shoulder massage)",
+  "นวดน้ำมัน (oil massage)",
+  "นวดน้ำมันอโรม่า (aroma oil massage)",
+  "นวดน้ำมันเซรั่มมะพร้าว (coconut oil serum massage)",
+  "ขัดผิวกาย (body scrub)",
+  "นวดไทยล้านนา ประคบสมุนไพร พิเศษ (traditional lanna herbal)",
+  "นวดน้ำมัน ประคบสมุนไพร (oil massage + herbal compress)",
+  "นวดน้ำมันอโรม่า ประคบสมุนไพร (aroma oil + herbal compress)",
+  "นวดออฟฟิศซินโดรม (office syndrome massage)",
+  "นวดไทยล้านนา ประคบสมุนไพร ชุดสุดคุ้ม (best value lanna herbal)",
+  "อบตัว ขัดผิวกาย (thai herbal steam + body scrub)",
+  "นวดหินร้อน (hot stone + aroma oil massage)",
+];
+
+interface PackageGroup {
+  key: string;
   title: string;
-  description: string;
-  price: number;
-  duration: number;
-  pictureUrl: string;
-  note: string;
+  category: string;
+  type: PackageType;
+  variants: IPackage[];
 }
 
-const PackageManagement = () => {
-  // State management
+interface PackageFormData {
+  type: PackageType;
+  category: string;
+  title: string;
+  description: string;
+  prices: Record<Duration, string>;
+  enabledDurations: Record<Duration, boolean>;
+  pictureUrl: string;
+  note: string;
+  isActive: boolean;
+}
+
+const emptyForm = (): PackageFormData => ({
+  type: "service",
+  category: MENU_CATEGORIES[0],
+  title: "",
+  description: "",
+  prices: { 60: "", 90: "", 120: "" },
+  enabledDurations: { 60: true, 90: true, 120: true },
+  pictureUrl: "",
+  note: "",
+  isActive: true,
+});
+
+function baseTitle(title: string) {
+  return title.replace(/\s*\(\d+\s*mins?\)\s*$/i, "").trim();
+}
+
+function inferCategory(title: string, type: PackageType) {
+  const value = baseTitle(title).toLocaleLowerCase();
+  if (type === "promotion") return "The Best Massage";
+  if (/hot stone|หินร้อน/.test(value)) return "Premium Experience";
+  if (/traditional lanna herbal|oil massage \+ herbal compress|aroma oil \+ herbal compress|ประคบสมุนไพร พิเศษ|น้ำมัน ประคบสมุนไพร/.test(value)) {
+    return "Traditional Lanna Massage";
+  }
+  if (/foot massage|นวดเท้า/.test(value)) return "Foot Massage";
+  if (/back \+ shoulder massage|head, back & shoulder massage|นวดหลังไหล่|นวดศีรษะ หลัง ไหล่/.test(value)) {
+    return "Head, Back & Shoulder Massage";
+  }
+  if (/oil massage|aroma oil|coconut oil|body scrub|ขัดผิว|นวดน้ำมัน/.test(value)) {
+    return "Nourishing Treatment Massage";
+  }
+  if (/thai massage|นวดไทย|thai lanna/.test(value)) return "Thai Massage";
+  return "Other";
+}
+
+function buildGroups(packages: IPackage[]): PackageGroup[] {
+  const groups = new Map<string, PackageGroup>();
+  for (const pkg of packages) {
+    const title = baseTitle(pkg.title);
+    const category = pkg.category || inferCategory(pkg.title, pkg.type);
+    const key = `${category.toLocaleLowerCase()}|${pkg.type}|${title.toLocaleLowerCase()}`;
+    const group = groups.get(key) ?? {
+      key,
+      title,
+      category,
+      type: pkg.type,
+      variants: [],
+    };
+    group.variants.push(pkg);
+    groups.set(key, group);
+  }
+
+  return [...groups.values()].map((group) => ({
+    ...group,
+    variants: [...group.variants].sort((a, b) => a.duration - b.duration),
+  }));
+}
+
+function groupActive(group: PackageGroup) {
+  return group.variants.some((variant) => variant.isActive);
+}
+
+function PackageManagement() {
   const [packages, setPackages] = useState<IPackage[]>([]);
-  const [filteredPackages, setFilteredPackages] = useState<IPackage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "service" | "promotion">(
-    "all"
-  );
-  const [isLoading, setIsLoading] = useState(false);
+  const [filterType, setFilterType] = useState<"all" | PackageType>("all");
+  const [visibilityFilter, setVisibilityFilter] =
+    useState<VisibilityFilter>("active");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPackage, setEditingPackage] = useState<IPackage | null>(null);
-  const [formData, setFormData] = useState<PackageFormData>({
-    type: "service",
-    title: "",
-    description: "",
-    price: 0,
-    duration: 0,
-    pictureUrl: "",
-    note: "",
-  });
-  const [errors, setErrors] = useState<
-    Partial<Record<keyof PackageFormData, string>>
-  >({});
-  const [formError, setFormError] = useState<string | null>(null);
+  const [editingGroup, setEditingGroup] = useState<PackageGroup | null>(null);
+  const [formData, setFormData] = useState<PackageFormData>(emptyForm);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [formError, setFormError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<PackageGroup | null>(null);
+  const [notification, setNotification] = useState("");
 
-  // Add notification and confirmation dialog states
-  const [notification, setNotification] = useState<{
-    open: boolean;
-    type: "success" | "error";
-    message: string;
-  }>({ open: false, type: "success", message: "" });
-
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-  }>({ open: false, title: "", message: "", onConfirm: () => {} });
-
-  // Fetch packages on component mount
-  useEffect(() => {
-    fetchPackages();
-  }, []);
-
-  // Filter packages based on search term and type
-  useEffect(() => {
-    const filtered = packages.filter((pkg) => {
-      const matchesSearch =
-        pkg.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pkg.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pkg.price.toString().includes(searchTerm);
-
-      const matchesType = filterType === "all" || pkg.type === filterType;
-
-      return matchesSearch && matchesType;
-    });
-    setFilteredPackages(filtered);
-  }, [packages, searchTerm, filterType]);
-
-  // Success toast effect
-  useEffect(() => {
-    if (showSuccessToast) {
-      const timer = setTimeout(() => {
-        setShowSuccessToast(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [showSuccessToast]);
-
-  // API functions
-  const fetchPackages = async () => {
+  const fetchPackages = useCallback(async () => {
     setIsLoading(true);
     try {
-      const abortController = new AbortController();
-      const result = await getAllPackages(abortController.signal);
-
+      const result = await getAllPackages(new AbortController().signal);
       if (Array.isArray(result)) {
         setPackages(result);
-      } else if ("message" in result) {
-        console.error("Error fetching packages:", result.message);
-        setNotification({
-          open: true,
-          type: "error",
-          message: result.message,
-        });
+      } else {
+        setNotification(result.message || "Could not load the service menu.");
       }
-    } catch (error) {
-      console.error("Error fetching packages:", error);
-      setNotification({
-        open: true,
-        type: "error",
-        message: "Failed to fetch packages. Please try again.",
-      });
+    } catch {
+      setNotification("Could not load the service menu. Check the API connection and try again.");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const resetForm = useCallback(() => {
-    setFormData({
-      type: "service",
-      title: "",
-      description: "",
-      price: 0,
-      duration: 0,
-      pictureUrl: "",
-      note: "",
-    });
-    setErrors({});
-    setFormError(null);
-    setSelectedImage(null);
-    setImagePreview(null);
-    setEditingPackage(null);
-    setIsUploadingImage(false);
   }, []);
 
-  const openModal = useCallback(
-    (pkg?: IPackage) => {
-      if (pkg) {
-        setEditingPackage(pkg);
-        setFormData({
-        id: pkg.id,
-        type: (pkg.type as PackageFormData["type"]) ?? "service",
-        title: pkg.title,
-        description: pkg.description,
-        price: pkg.price,
-        duration: pkg.duration,
-        pictureUrl: pkg.pictureUrl || "",
-        note: pkg.note || "",
-      });
-      setImagePreview(pkg.pictureUrl || null);
-    } else {
-      resetForm();
-      }
-      setIsModalOpen(true);
-    },
-    [resetForm]
-  );
-
-  const closeModal = useCallback(() => {
-    setIsModalOpen(false);
-    resetForm();
-  }, [resetForm]);
-
-  // Handle keyboard events for modal
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && isModalOpen) {
-        closeModal();
-      }
-    };
+    void fetchPackages();
+  }, [fetchPackages]);
 
-    if (isModalOpen) {
-      document.addEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "hidden";
-    }
+  useEffect(() => {
+    if (!successMessage && !notification) return;
+    const timer = window.setTimeout(() => {
+      setSuccessMessage("");
+      setNotification("");
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [successMessage, notification]);
 
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "unset";
-    };
-  }, [closeModal, isModalOpen]);
+  const allGroups = useMemo(() => buildGroups(packages), [packages]);
+  const activeVariants = packages.filter((pkg) => pkg.isActive).length;
+  const hiddenVariants = packages.length - activeVariants;
+  const visibleGroups = useMemo(() => {
+    const query = searchTerm.trim().toLocaleLowerCase();
+    return allGroups
+      .filter((group) => filterType === "all" || group.type === filterType)
+      .filter((group) => {
+        if (visibilityFilter === "active") return groupActive(group);
+        if (visibilityFilter === "hidden") {
+          return group.variants.every((variant) => !variant.isActive);
+        }
+        return true;
+      })
+      .filter((group) => {
+        if (!query) return true;
+        return (
+          `${group.title} ${group.category} ${group.variants[0]?.description ?? ""}`
+            .toLocaleLowerCase()
+            .includes(query) ||
+          group.variants.some((variant) => String(variant.price).includes(query))
+        );
+      })
+      .sort((a, b) => {
+        const categoryDifference =
+          MENU_CATEGORIES.indexOf(a.category as (typeof MENU_CATEGORIES)[number]) -
+          MENU_CATEGORIES.indexOf(b.category as (typeof MENU_CATEGORIES)[number]);
+        if (categoryDifference) return categoryDifference;
+        const indexA = MENU_ITEM_ORDER.indexOf(a.title.toLocaleLowerCase());
+        const indexB = MENU_ITEM_ORDER.indexOf(b.title.toLocaleLowerCase());
+        if (indexA !== -1 || indexB !== -1) {
+          if (indexA === -1) return 1;
+          if (indexB === -1) return -1;
+          if (indexA !== indexB) return indexA - indexB;
+        }
+        return a.title.localeCompare(b.title, "th");
+      });
+  }, [allGroups, filterType, searchTerm, visibilityFilter]);
 
-  // Form handlers
-  const handleInputChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        name === "price" || name === "duration"
-          ? Number(value)
-          : (value as string),
-    }));
-
-    // Clear error when user starts typing
-    if (errors[name as keyof PackageFormData]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: undefined,
-      }));
-    }
-  };
-
-  // Handle image selection
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith("image/")) {
-        setErrors((prev) => ({
-          ...prev,
-          pictureUrl: "Please select a valid image file",
-        }));
-        return;
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setErrors((prev) => ({
-          ...prev,
-          pictureUrl: "Image size must be less than 5MB",
-        }));
-        return;
-      }
-
-      setSelectedImage(file);
-
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-
-      // Clear any existing error
-      setErrors((prev) => ({ ...prev, pictureUrl: undefined }));
-    }
-  };
-
-  // Remove selected image
-  const handleRemoveImage = () => {
+  const openCreate = () => {
+    setEditingGroup(null);
+    setFormData(emptyForm());
     setSelectedImage(null);
     setImagePreview(null);
-    setFormData((prev) => ({ ...prev, pictureUrl: "" }));
-    setErrors((prev) => ({ ...prev, pictureUrl: undefined }));
+    setFormError("");
+    setIsModalOpen(true);
   };
 
-  // Form validation
-  const validateForm = (): boolean => {
-    const newErrors: Partial<Record<keyof PackageFormData, string>> = {};
-
-    if (!formData.type || !["service", "promotion"].includes(formData.type)) {
-      newErrors.type = "Type must be Service or Promotion";
+  const openEdit = (group: PackageGroup) => {
+    const first = group.variants[0];
+    const prices: Record<Duration, string> = { 60: "", 90: "", 120: "" };
+    const enabledDurations: Record<Duration, boolean> = {
+      60: false,
+      90: false,
+      120: false,
+    };
+    for (const variant of group.variants) {
+      if (DURATIONS.includes(variant.duration as Duration)) {
+        const duration = variant.duration as Duration;
+        prices[duration] = String(variant.price);
+        enabledDurations[duration] = true;
+      }
     }
-    if (!formData.title.trim()) newErrors.title = "Package title is required";
-    if (!formData.description.trim())
-      newErrors.description = "Description is required";
-    if (!formData.price || formData.price <= 0)
-      newErrors.price = "Price must be greater than 0";
-    if (!formData.duration || formData.duration <= 0)
-      newErrors.duration = "Duration must be greater than 0";
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setEditingGroup(group);
+    setFormData({
+      type: group.type,
+      category: group.category,
+      title: group.title,
+      description: first.description || "",
+      prices,
+      enabledDurations,
+      pictureUrl: first.pictureUrl || "",
+      note: first.note || "",
+      isActive: group.variants.some((variant) => variant.isActive),
+    });
+    setSelectedImage(null);
+    setImagePreview(first.pictureUrl || null);
+    setFormError("");
+    setIsModalOpen(true);
   };
 
-  // Submit form (create or update)
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
+  const closeModal = () => {
+    if (isSaving) return;
+    setIsModalOpen(false);
+    setEditingGroup(null);
+    setFormData(emptyForm());
+    setSelectedImage(null);
+    setImagePreview(null);
+    setFormError("");
+  };
 
-    if (!validateForm()) {
-      setFormError("Please correct the errors below.");
+  const setField = <K extends keyof PackageFormData>(
+    key: K,
+    value: PackageFormData[K]
+  ) => setFormData((current) => ({ ...current, [key]: value }));
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setFormError("Choose an image file (PNG, JPG, or WebP).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setFormError("Image must be smaller than 5 MB.");
+      return;
+    }
+    setFormError("");
+    setSelectedImage(file);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFormError("");
+    const title = baseTitle(formData.title);
+    const variants = DURATIONS.filter(
+      (duration) => formData.enabledDurations[duration]
+    ).map((duration) => ({
+      duration,
+      price: Number(formData.prices[duration]),
+    }));
+
+    if (!title || !formData.description.trim() || !formData.category) {
+      setFormError("Add a service name, category, and description.");
+      return;
+    }
+    if (variants.length === 0) {
+      setFormError("Select at least one duration and enter its price.");
+      return;
+    }
+    if (variants.some((variant) => !Number.isFinite(variant.price) || variant.price <= 0)) {
+      setFormError("Every selected duration needs a price greater than ฿0.");
       return;
     }
 
-    setIsLoading(true);
-
+    setIsSaving(true);
     try {
-      const abortController = new AbortController();
-      let finalPictureUrl = formData.pictureUrl;
+      let pictureUrl = formData.pictureUrl.trim() || null;
+      if (selectedImage) pictureUrl = await uploadImage(selectedImage);
 
-      // Upload image if a new one was selected
-      if (selectedImage) {
-        setIsUploadingImage(true);
-        try {
-          finalPictureUrl = await uploadImage(selectedImage);
-        } catch (uploadError: unknown) {
-          const message =
-            uploadError instanceof Error
-              ? uploadError.message
-              : "Failed to upload image. Please try again.";
-          setFormError(message);
-          setIsUploadingImage(false);
-          setIsLoading(false);
-          return;
-        }
-        setIsUploadingImage(false);
-      }
-
-      const packageInput: IPackageInput = {
+      const input: IPackageGroupInput = {
         type: formData.type,
-        title: formData.title,
-        description: formData.description,
-        price: formData.price,
-        duration: formData.duration,
-        pictureUrl: finalPictureUrl || null,
-        note:
-          !formData.note || formData.note.trim() === "" ? null : formData.note,
+        category: formData.category,
+        title,
+        description: formData.description.trim(),
+        pictureUrl,
+        note: formData.note.trim() || null,
+        isActive: formData.isActive,
+        variants,
       };
-
-      let result;
-      if (editingPackage) {
-        result = await updatePackage(
-          editingPackage.id,
-          packageInput,
-          abortController.signal
-        );
-      } else {
-        result = await createPackage(packageInput, abortController.signal);
-      }
-
-      if ("message" in result) {
-        const errorResult = result as IErrorResponse;
+      const result = await savePackageGroup(
+        editingGroup?.variants[0].id ?? null,
+        input,
+        new AbortController().signal
+      );
+      if (!Array.isArray(result)) {
         setFormError(
-          errorResult.message || "An error occurred. Please try again."
+          (result as IErrorResponse).message ||
+            "The menu item could not be saved. Please try again."
         );
-      } else {
-        await fetchPackages();
-        closeModal();
-
-        // Show success toast
-        setSuccessMessage(
-          editingPackage
-            ? "Package updated successfully!"
-            : "Package created successfully!"
-        );
-        setShowSuccessToast(true);
+        return;
       }
+
+      await fetchPackages();
+      setIsModalOpen(false);
+      setEditingGroup(null);
+      setSelectedImage(null);
+      setImagePreview(null);
+      setSuccessMessage(
+        editingGroup ? "Menu item updated." : "Menu item added to the booking page."
+      );
     } catch (error) {
-      console.error("Error saving package:", error);
-      setFormError("Failed to save package. Please try again.");
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : "The menu item could not be saved. Check the API and try again."
+      );
     } finally {
-      setIsLoading(false);
-      setIsUploadingImage(false);
+      setIsSaving(false);
     }
   };
 
-  // Delete package
-  const handleDeletePackage = (id: string, title: string) => {
-    setConfirmDialog({
-      open: true,
-      title: "Delete Package",
-      message: `Are you sure you want to delete the package "${title}"? This action cannot be undone.`,
-      onConfirm: () => confirmDeletePackage(id),
-    });
-  };
-
-  const confirmDeletePackage = async (id: string) => {
-    setIsLoading(true);
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    const group = confirmDelete;
+    setIsSaving(true);
     try {
-      const abortController = new AbortController();
-      const result = await deletePackage(id, abortController.signal);
-
-      if (
-        "message" in result &&
-        result.message !== "Package deleted successfully"
-      ) {
-        const errorResult = result as IErrorResponse;
-        setNotification({
-          open: true,
-          type: "error",
-          message: errorResult.message,
-        });
+      const result = await deletePackageGroup(
+        group.variants[0].id,
+        new AbortController().signal
+      );
+      if ("message" in result && result.message !== "Package group deleted successfully") {
+        setNotification(result.message);
       } else {
         await fetchPackages();
-        setNotification({
-          open: true,
-          type: "success",
-          message: "Package deleted successfully!",
-        });
+        setSuccessMessage("Menu item removed from the booking page.");
       }
-    } catch (error) {
-      console.error("Error deleting package:", error);
-      setNotification({
-        open: true,
-        type: "error",
-        message: "Failed to delete package. Please try again.",
-      });
+    } catch {
+      setNotification("Could not remove the menu item. Please try again.");
     } finally {
-      setIsLoading(false);
+      setConfirmDelete(null);
+      setIsSaving(false);
     }
   };
 
-  // Format duration for display
-  const formatDuration = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours > 0) {
-      return `${hours}h ${mins}m`;
-    }
-    return `${mins}m`;
-  };
+  const groupsByCategory = MENU_CATEGORIES.map((category) => ({
+    category,
+    groups: visibleGroups.filter((group) => group.category === category),
+  })).filter((section) => section.groups.length > 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNavbar />
 
-      {/* Success Toast */}
-      {showSuccessToast && (
-        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-in-right">
-          <CheckCircleIcon className="w-5 h-5" />
-          {successMessage}
+      {(successMessage || notification) && (
+        <div
+          role="status"
+          className={`fixed right-4 top-20 z-50 flex max-w-md items-center gap-2 rounded-lg px-4 py-3 text-sm shadow-lg ${
+            notification ? "bg-red-700 text-white" : "bg-emerald-700 text-white"
+          }`}
+        >
+          {notification ? (
+            <ExclamationTriangleIcon className="h-5 w-5 shrink-0" />
+          ) : (
+            <CheckCircleIcon className="h-5 w-5 shrink-0" />
+          )}
+          {notification || successMessage}
+          <button
+            type="button"
+            aria-label="Dismiss message"
+            onClick={() => {
+              setNotification("");
+              setSuccessMessage("");
+            }}
+            className="ml-2 rounded p-1 hover:bg-white/10"
+          >
+            <XMarkIcon className="h-4 w-4" />
+          </button>
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Package Management
-              </h1>
-              <p className="mt-2 text-sm text-gray-600">
-                Manage all service packages, including creating new packages,
-                editing existing ones, and viewing package details.
-              </p>
-            </div>
-            <button
-              onClick={() => openModal()}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm"
-              disabled={isLoading}
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+              Getthawha · Official menu
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-stone-900">
+              Service & promotion menu
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-stone-600">
+              Manage a menu item once, with its 60, 90, and 120 minute prices together. These prices are the ones customers see when booking.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-600 focus:ring-offset-2"
+          >
+            <PlusIcon className="h-5 w-5" />
+            Add menu item
+          </button>
+        </header>
+
+        <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Menu totals">
+          <div className="rounded-xl border border-stone-200 bg-white p-4">
+            <p className="text-sm text-stone-500">Menu items shown on booking</p>
+            <p className="mt-1 text-2xl font-semibold text-stone-900">
+              {allGroups.filter(groupActive).length}
+            </p>
+          </div>
+          <div className="rounded-xl border border-stone-200 bg-white p-4">
+            <p className="text-sm text-stone-500">Active duration prices</p>
+            <p className="mt-1 text-2xl font-semibold text-stone-900">{activeVariants}</p>
+          </div>
+          <div className="rounded-xl border border-stone-200 bg-white p-4">
+            <p className="text-sm text-stone-500">Hidden duration prices</p>
+            <p className="mt-1 text-2xl font-semibold text-stone-900">{hiddenVariants}</p>
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-xl border border-stone-200 bg-white p-4 sm:p-5" aria-label="Search and filters">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_190px_190px_auto]">
+            <label className="relative block">
+              <span className="sr-only">Search menu</span>
+              <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-stone-400" />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search name, category, or price"
+                className="w-full rounded-lg border border-stone-300 py-2.5 pl-10 pr-3 text-sm text-stone-900 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+              />
+            </label>
+            <label className="sr-only" htmlFor="type-filter">Filter by type</label>
+            <select
+              id="type-filter"
+              value={filterType}
+              onChange={(event) => setFilterType(event.target.value as "all" | PackageType)}
+              className="rounded-lg border border-stone-300 px-3 py-2.5 text-sm text-stone-800 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
             >
-              <PlusIcon className="w-5 h-5 mr-2" />
-              Add Package
+              <option value="all">All types</option>
+              <option value="service">Services</option>
+              <option value="promotion">Promotions</option>
+            </select>
+            <label className="sr-only" htmlFor="visibility-filter">Filter by visibility</label>
+            <select
+              id="visibility-filter"
+              value={visibilityFilter}
+              onChange={(event) => setVisibilityFilter(event.target.value as VisibilityFilter)}
+              className="rounded-lg border border-stone-300 px-3 py-2.5 text-sm text-stone-800 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+            >
+              <option value="active">Visible on booking</option>
+              <option value="hidden">Hidden from booking</option>
+              <option value="all">All menu items</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => void fetchPackages()}
+              disabled={isLoading}
+              className="rounded-lg border border-stone-300 px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+            >
+              {isLoading ? "Refreshing…" : "Refresh"}
             </button>
           </div>
-        </div>
+          <p className="mt-3 text-xs text-stone-500">
+            The customer booking page only shows active prices. Hidden prices stay here so you can restore them later.
+          </p>
+        </section>
 
-        {/* Search and Filters */}
-        <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex flex-col sm:flex-row gap-4 flex-1">
-              <div className="relative flex-1 max-w-md">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search packages..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <select
-                value={filterType}
-                onChange={(e) =>
-                  setFilterType(
-                    e.target.value as "all" | "service" | "promotion"
-                  )
-                }
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Types</option>
-                <option value="service">Services</option>
-                <option value="promotion">Promotions</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-6 text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span>Total: {packages.length}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span>Filtered: {filteredPackages.length}</span>
-              </div>
-              <button
-                onClick={fetchPackages}
-                className="text-blue-600 hover:text-blue-700 font-medium"
-                disabled={isLoading}
-              >
-                {isLoading ? "Refreshing..." : "Refresh"}
-              </button>
-            </div>
+        {isLoading ? (
+          <div className="rounded-xl border border-stone-200 bg-white py-20 text-center text-sm text-stone-500">
+            Loading the official menu…
           </div>
-        </div>
-
-        {/* Packages Grid/List */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-3 text-gray-600">Loading packages...</span>
-            </div>
-          ) : filteredPackages.length === 0 ? (
-            <div className="text-center py-16">
-              {searchTerm || filterType !== "all" ? (
-                <>
-                  <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    No packages found
-                  </h3>
-                  <p className="text-gray-500 mb-4">
-                    Try adjusting your search terms or filters, or create a new
-                    package.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setSearchTerm("");
-                      setFilterType("all");
-                    }}
-                    className="text-blue-600 hover:text-blue-700 font-medium mr-4"
-                  >
-                    Clear filters
-                  </button>
-                </>
-              ) : (
-                <>
-                  <CubeIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    No packages yet
-                  </h3>
-                  <p className="text-gray-500 mb-6">
-                    Get started by creating your first service package.
-                  </p>
-                  <button
-                    onClick={() => openModal()}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
-                  >
-                    <PlusIcon className="w-5 h-5 mr-2" />
-                    Add First Package
-                  </button>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="overflow-hidden">
-              {/* Mobile Card View */}
-              <div className="block sm:hidden">
-                {filteredPackages.map((pkg: IPackage) => (
-                  <div key={pkg.id} className="border-b border-gray-200 p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3">
-                        {pkg.pictureUrl ? (
-                          <Image
-                            src={pkg.pictureUrl}
-                            alt={pkg.title}
-                            width={48}
-                            height={48}
-                            className="w-12 h-12 rounded-lg object-cover"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <PhotoIcon className="w-6 h-6 text-gray-400" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
-                              {pkg.title}
-                            </h4>
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                pkg.type === "promotion"
-                                  ? "bg-purple-100 text-purple-800"
-                                  : "bg-blue-100 text-blue-800"
-                              }`}
-                            >
-                              {pkg.type || "service"}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500 truncate mb-1">
-                            {pkg.description}
-                          </p>
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span>฿{pkg.price.toLocaleString()}</span>
-                            <span>{formatDuration(pkg.duration)}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2 ml-4">
-                        <button
-                          onClick={() => openModal(pkg)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeletePackage(pkg.id, pkg.title)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Desktop Table View */}
-              <div className="hidden sm:block">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Package
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Price & Duration
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredPackages.map((pkg: IPackage) => (
-                      <tr
-                        key={pkg.id}
-                        className="hover:bg-gray-50 transition-colors duration-150"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center">
-                            {pkg.pictureUrl ? (
+        ) : groupsByCategory.length === 0 ? (
+          <div className="rounded-xl border border-stone-200 bg-white px-6 py-16 text-center">
+            <PhotoIcon className="mx-auto h-10 w-10 text-stone-400" />
+            <h2 className="mt-3 text-lg font-semibold text-stone-900">No menu items found</h2>
+            <p className="mt-1 text-sm text-stone-600">Change the filters or add an item with its prices.</p>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {groupsByCategory.map(({ category, groups }) => (
+              <section key={category} aria-labelledby={`menu-${category}`}>
+                <div className="mb-3 flex items-center gap-3">
+                  <h2 id={`menu-${category}`} className="text-sm font-bold uppercase tracking-[0.14em] text-stone-800">
+                    {category}
+                  </h2>
+                  <span className="rounded-full bg-stone-200 px-2.5 py-0.5 text-xs font-medium text-stone-600">
+                    {groups.length} {groups.length === 1 ? "item" : "items"}
+                  </span>
+                  <div className="h-px flex-1 bg-stone-200" />
+                </div>
+                <div className="grid gap-3 xl:grid-cols-2">
+                  {groups.map((group) => {
+                    const activeCount = group.variants.filter((variant) => variant.isActive).length;
+                    const isFullyActive = activeCount === group.variants.length;
+                    const isFullyHidden = activeCount === 0;
+                    const primary = group.variants[0];
+                    return (
+                      <article key={group.key} className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+                        <div className="flex flex-col gap-4 sm:flex-row">
+                          <div className="flex min-w-0 flex-1 gap-3">
+                            {primary.pictureUrl ? (
                               <Image
-                                src={pkg.pictureUrl}
-                                alt={pkg.title}
-                                width={40}
-                                height={40}
-                                className="w-10 h-10 rounded-lg object-cover mr-4"
+                                src={primary.pictureUrl}
+                                alt=""
+                                width={72}
+                                height={72}
                                 unoptimized
+                                className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover"
                               />
                             ) : (
-                              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mr-4">
-                                <PhotoIcon className="w-5 h-5 text-gray-400" />
+                              <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-400">
+                                <PhotoIcon className="h-8 w-8" />
                               </div>
                             )}
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {pkg.title}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-base font-semibold text-stone-900">{group.title}</h3>
+                                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${group.type === "promotion" ? "bg-rose-50 text-rose-800" : "bg-amber-50 text-amber-900"}`}>
+                                  {group.type === "promotion" ? "Promotion" : "Service"}
+                                </span>
+                                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${isFullyActive ? "bg-emerald-50 text-emerald-800" : isFullyHidden ? "bg-stone-100 text-stone-600" : "bg-orange-50 text-orange-800"}`}>
+                                  {isFullyActive ? "Visible" : isFullyHidden ? "Hidden" : "Partly visible"}
+                                </span>
                               </div>
+                              <p className="mt-1 line-clamp-2 text-sm text-stone-600">{primary.description}</p>
                             </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              pkg.type === "promotion"
-                                ? "bg-purple-100 text-purple-800"
-                                : "bg-blue-100 text-blue-800"
-                            }`}
-                          >
-                            {pkg.type || "service"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 flex items-center mb-1">
-                            <CurrencyDollarIcon className="w-4 h-4 text-gray-400 mr-1" />
-                            ฿{pkg.price.toLocaleString()}
-                          </div>
-                          <div className="text-sm text-gray-500 flex items-center">
-                            <ClockIcon className="w-4 h-4 text-gray-400 mr-1" />
-                            {formatDuration(pkg.duration)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 truncate max-w-xs">
-                            {pkg.description}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end space-x-2">
-                            <button
-                              onClick={() => openModal(pkg)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-150"
-                              title="Edit package"
-                            >
-                              <PencilIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleDeletePackage(pkg.id, pkg.title)
-                              }
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-150"
-                              title="Delete package"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Modern Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            {/* Background overlay */}
-            <div
-              className="fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity"
-              aria-hidden="true"
-              onClick={closeModal}
-            ></div>
-
-            <span
-              className="hidden sm:inline-block sm:align-middle sm:h-screen"
-              aria-hidden="true"
-            >
-              &#8203;
-            </span>
-
-            {/* Modal panel */}
-            <div
-              className="relative inline-block align-bottom rounded-xl text-left overflow-hidden transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full
-  bg-white border border-gray-200 shadow-2xl"
-              role="dialog"
-              aria-modal="true"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {editingPackage ? "Edit Package" : "Add New Package"}
-                </h2>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <XMarkIcon className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="max-h-[70vh] overflow-y-auto">
-                <form onSubmit={handleSubmit} className="p-6">
-                  {formError && (
-                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
-                      <ExclamationTriangleIcon className="w-5 h-5 text-red-500 mr-3 flex-shrink-0" />
-                      <span className="text-sm text-red-700">{formError}</span>
-                    </div>
-                  )}
-
-                  <div className="space-y-6">
-                    {/* Type and Title */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Type *
-                        </label>
-                        <select
-                          name="type"
-                          value={formData.type}
-                          onChange={handleInputChange}
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-150 ${
-                            errors.type ? "border-red-500" : "border-gray-300"
-                          }`}
-                        >
-                          <option value="service">Service</option>
-                          <option value="promotion">Promotion</option>
-                        </select>
-                        {errors.type && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.type}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Package Title *
-                        </label>
-                        <input
-                          type="text"
-                          name="title"
-                          value={formData.title}
-                          onChange={handleInputChange}
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-150 ${
-                            errors.title ? "border-red-500" : "border-gray-300"
-                          }`}
-                          placeholder="Enter package title"
-                        />
-                        {errors.title && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.title}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Description */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description *
-                      </label>
-                      <textarea
-                        name="description"
-                        value={formData.description}
-                        onChange={handleInputChange}
-                        rows={3}
-                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-150 ${
-                          errors.description
-                            ? "border-red-500"
-                            : "border-gray-300"
-                        }`}
-                        placeholder="Enter package description"
-                      />
-                      {errors.description && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors.description}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Price and Duration */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Price (THB) *
-                        </label>
-                        <input
-                          type="number"
-                          name="price"
-                          value={formData.price}
-                          onChange={handleInputChange}
-                          min="0"
-                          step="0.01"
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-150 ${
-                            errors.price ? "border-red-500" : "border-gray-300"
-                          }`}
-                          placeholder="0.00"
-                        />
-                        {errors.price && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.price}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Duration (minutes) *
-                        </label>
-                        <input
-                          type="number"
-                          name="duration"
-                          value={formData.duration}
-                          onChange={handleInputChange}
-                          min="0"
-                          step="1"
-                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-150 ${
-                            errors.duration
-                              ? "border-red-500"
-                              : "border-gray-300"
-                          }`}
-                          placeholder="0"
-                        />
-                        {errors.duration && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.duration}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Image Upload */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Package Image
-                      </label>
-                      <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors duration-150">
-                        {imagePreview ? (
-                          <div className="relative inline-block">
-                            <Image
-                              src={imagePreview}
-                              alt="Preview"
-                              width={128}
-                              height={128}
-                              className="mx-auto h-32 w-32 object-cover rounded-lg"
-                              unoptimized
-                            />
+                          <div className="flex shrink-0 gap-2 sm:self-start">
                             <button
                               type="button"
-                              onClick={handleRemoveImage}
-                              className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm transition-colors duration-150"
+                              onClick={() => openEdit(group)}
+                              aria-label={`Edit ${group.title}`}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
                             >
-                              ×
+                              <PencilIcon className="h-4 w-4" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelete(group)}
+                              aria-label={`Delete ${group.title}`}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                            >
+                              <TrashIcon className="h-4 w-4" /> Remove
                             </button>
                           </div>
-                        ) : (
-                          <div>
-                            <PhotoIcon className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                            <p className="text-sm text-gray-600 mb-1">
-                              Click to upload or drag and drop
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              PNG, JPG, GIF up to 5MB
-                            </p>
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageSelect}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                        />
-                      </div>
-                      {isUploadingImage && (
-                        <div className="flex items-center justify-center mt-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                          <span className="text-sm text-blue-600">
-                            Uploading image...
-                          </span>
                         </div>
-                      )}
-                      {errors.pictureUrl && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors.pictureUrl}
-                        </p>
-                      )}
-                    </div>
 
-                    {/* Additional Notes */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Additional Notes
-                      </label>
-                      <textarea
-                        name="note"
-                        value={formData.note}
-                        onChange={handleInputChange}
-                        rows={2}
-                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-150 ${
-                          errors.note ? "border-red-500" : "border-gray-300"
-                        }`}
-                        placeholder="Enter any additional notes (optional)"
-                      />
-                      {errors.note && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors.note}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Modal Footer */}
-                  <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200 mt-8">
-                    <button
-                      type="button"
-                      onClick={closeModal}
-                      className="px-4 py-2 text-gray-800 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isLoading}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isLoading || isUploadingImage}
-                    >
-                      {isLoading && (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      )}
-                      {isLoading
-                        ? "Saving..."
-                        : editingPackage
-                        ? "Update Package"
-                        : "Create Package"}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+                          {DURATIONS.map((duration) => {
+                            const variant = group.variants.find((item) => item.duration === duration);
+                            return (
+                              <div key={duration} className={`rounded-lg border px-3 py-2 ${variant?.isActive ? "border-amber-200 bg-amber-50/70" : "border-stone-200 bg-stone-50"}`}>
+                                <div className="flex items-center gap-1 text-xs text-stone-500">
+                                  <ClockIcon className="h-3.5 w-3.5" /> {duration} min
+                                </div>
+                                {variant ? (
+                                  <div className="mt-1 flex items-center gap-1 text-sm font-semibold text-stone-900">
+                                    <CurrencyDollarIcon className="h-4 w-4 text-amber-700" />
+                                    ฿{Number(variant.price).toLocaleString()}
+                                    {!variant.isActive && <span className="ml-1 text-[10px] font-medium text-stone-500">hidden</span>}
+                                  </div>
+                                ) : (
+                                  <p className="mt-1 text-sm text-stone-400">—</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {group.variants.length > 3 && (
+                          <p className="mt-2 text-xs text-orange-800">
+                            This item has extra duration variants. Edit it to move to the standard 60 / 90 / 120 minute menu.
+                          </p>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </main>
 
-      {/* Notification Modal */}
-      {notification.open && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md m-4">
-            <div className="p-6 text-center">
-              <div className="mb-4">
-                {notification.type === "success" ? (
-                  <svg
-                    className="w-16 h-16 text-green-500 mx-auto"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="w-16 h-16 text-red-500 mx-auto"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                )}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/45 p-3 sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) closeModal(); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="package-dialog-title" className="my-auto max-h-[95vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-start justify-between border-b border-stone-200 bg-white px-5 py-4 sm:px-7">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-amber-700">Official menu item</p>
+                <h2 id="package-dialog-title" className="mt-1 text-xl font-semibold text-stone-900">
+                  {editingGroup ? "Edit menu item" : "Add menu item"}
+                </h2>
+                <p className="mt-1 text-sm text-stone-500">Set the service once, then enter every available duration price.</p>
               </div>
-              <h3 className="mb-2 text-lg font-medium text-gray-900">
-                {notification.type === "success" ? "Success!" : "Error!"}
-              </h3>
-              <p className="mb-6 text-sm text-gray-600">
-                {notification.message}
-              </p>
-              <button
-                className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center"
-                onClick={() =>
-                  setNotification({ ...notification, open: false })
-                }
-              >
-                OK
+              <button type="button" onClick={closeModal} aria-label="Close form" className="rounded-lg p-2 text-stone-500 hover:bg-stone-100">
+                <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
-          </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5 px-5 py-5 sm:px-7">
+              {formError && (
+                <div role="alert" className="flex gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+                  <ExclamationTriangleIcon className="h-5 w-5 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-stone-700">
+                  Menu section <span className="text-rose-600">*</span>
+                  <select value={formData.category} onChange={(event) => setField("category", event.target.value)} className="mt-1.5 w-full rounded-lg border border-stone-300 px-3 py-2.5 font-normal text-stone-900 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20">
+                    {MENU_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                </label>
+                <label className="block text-sm font-medium text-stone-700">
+                  Catalog type <span className="text-rose-600">*</span>
+                  <select value={formData.type} onChange={(event) => setField("type", event.target.value as PackageType)} className="mt-1.5 w-full rounded-lg border border-stone-300 px-3 py-2.5 font-normal text-stone-900 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20">
+                    <option value="service">Service</option>
+                    <option value="promotion">Promotion</option>
+                  </select>
+                </label>
+              </div>
+
+              <label className="block text-sm font-medium text-stone-700">
+                Service or promotion name <span className="text-rose-600">*</span>
+                <input value={formData.title} onChange={(event) => setField("title", event.target.value)} placeholder="Example: Thai Massage" className="mt-1.5 w-full rounded-lg border border-stone-300 px-3 py-2.5 font-normal text-stone-900 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20" />
+                <span className="mt-1 block text-xs font-normal text-stone-500">Enter the name once; the selected duration is added to each price automatically.</span>
+              </label>
+
+              <label className="block text-sm font-medium text-stone-700">
+                Description <span className="text-rose-600">*</span>
+                <textarea value={formData.description} onChange={(event) => setField("description", event.target.value)} rows={3} placeholder="Describe what this treatment includes" className="mt-1.5 w-full resize-y rounded-lg border border-stone-300 px-3 py-2.5 font-normal text-stone-900 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20" />
+              </label>
+
+              <fieldset>
+                <legend className="text-sm font-semibold text-stone-800">Duration and price <span className="font-normal text-stone-500">(THB)</span></legend>
+                <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                  {DURATIONS.map((duration) => (
+                    <div key={duration} className={`rounded-xl border p-3 ${formData.enabledDurations[duration] ? "border-amber-300 bg-amber-50/50" : "border-stone-200 bg-stone-50"}`}>
+                      <label className="flex items-center gap-2 text-sm font-medium text-stone-800">
+                        <input type="checkbox" checked={formData.enabledDurations[duration]} onChange={(event) => setFormData((current) => ({
+                          ...current,
+                          enabledDurations: { ...current.enabledDurations, [duration]: event.target.checked },
+                        }))} className="h-4 w-4 rounded border-stone-300 accent-amber-700" />
+                        {duration} minutes
+                      </label>
+                      <label className="mt-3 block text-xs font-medium text-stone-500" htmlFor={`price-${duration}`}>Price</label>
+                      <div className="mt-1 flex items-center rounded-lg border border-stone-300 bg-white px-3 focus-within:border-amber-700 focus-within:ring-2 focus-within:ring-amber-700/20">
+                        <span className="text-sm text-stone-500">฿</span>
+                        <input id={`price-${duration}`} type="number" min="0.01" step="0.01" disabled={!formData.enabledDurations[duration]} value={formData.prices[duration]} onChange={(event) => setFormData((current) => ({
+                          ...current,
+                          prices: { ...current.prices, [duration]: event.target.value },
+                        }))} placeholder="0" className="w-full border-0 bg-transparent px-2 py-2 text-sm text-stone-900 outline-none disabled:text-stone-400" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </fieldset>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-stone-700">Photo <span className="font-normal text-stone-500">(optional)</span></label>
+                  <div className="mt-1.5 flex min-h-28 items-center gap-3 rounded-xl border border-dashed border-stone-300 p-3">
+                    {imagePreview ? (
+                      <Image src={imagePreview} alt="Menu item preview" width={88} height={72} unoptimized className="h-[72px] w-[88px] rounded-lg object-cover" />
+                    ) : (
+                      <div className="flex h-[72px] w-[88px] items-center justify-center rounded-lg bg-stone-100 text-stone-400"><PhotoIcon className="h-7 w-7" /></div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <label className="inline-flex cursor-pointer rounded-lg border border-stone-300 px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-50">
+                        {imagePreview ? "Replace photo" : "Choose photo"}
+                        <input type="file" accept="image/*" onChange={handleImageChange} className="sr-only" />
+                      </label>
+                      {imagePreview && <button type="button" onClick={() => { setSelectedImage(null); setImagePreview(null); setField("pictureUrl", ""); }} className="ml-2 text-xs font-medium text-rose-700 hover:underline">Remove</button>}
+                      <p className="mt-2 text-xs text-stone-500">PNG, JPG, or WebP up to 5 MB.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <label className="block text-sm font-medium text-stone-700">
+                  Note <span className="font-normal text-stone-500">(optional)</span>
+                  <textarea value={formData.note} onChange={(event) => setField("note", event.target.value)} rows={4} placeholder="Internal or customer-facing note" className="mt-1.5 w-full resize-y rounded-lg border border-stone-300 px-3 py-2.5 font-normal text-stone-900 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20" />
+                </label>
+              </div>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                <input type="checkbox" checked={formData.isActive} onChange={(event) => setField("isActive", event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-stone-300 accent-amber-700" />
+                <span>
+                  <span className="block text-sm font-semibold text-stone-800">Show this item on the booking page</span>
+                  <span className="mt-0.5 block text-xs text-stone-500">Turn this off to hide every duration while keeping the item in admin.</span>
+                </span>
+              </label>
+
+              <div className="flex flex-col-reverse gap-2 border-t border-stone-200 pt-4 sm:flex-row sm:justify-end">
+                <button type="button" onClick={closeModal} disabled={isSaving} className="rounded-lg border border-stone-300 px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={isSaving} className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60">
+                  {isSaving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+                  {isSaving ? "Saving menu…" : editingGroup ? "Save changes" : "Add to menu"}
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
       )}
 
-      {/* Confirmation Dialog */}
-      {confirmDialog.open && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md m-4">
-            <div className="p-6 text-center">
-              <div className="mb-4">
-                <svg
-                  className="w-16 h-16 text-orange-500 mx-auto"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                  />
-                </svg>
-              </div>
-              <h3 className="mb-2 text-lg font-medium text-gray-900">
-                {confirmDialog.title}
-              </h3>
-              <p className="mb-6 text-sm text-gray-600">
-                {confirmDialog.message}
-              </p>
-              <div className="flex justify-center space-x-4">
-                <button
-                  className="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10"
-                  onClick={() =>
-                    setConfirmDialog({ ...confirmDialog, open: false })
-                  }
-                >
-                  Cancel
-                </button>
-                <button
-                  className="text-white bg-red-600 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center"
-                  onClick={() => {
-                    confirmDialog.onConfirm();
-                    setConfirmDialog({ ...confirmDialog, open: false });
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
+      {confirmDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <section role="alertdialog" aria-modal="true" aria-labelledby="delete-title" className="w-full max-w-md rounded-xl bg-white p-5 shadow-2xl">
+            <h2 id="delete-title" className="text-lg font-semibold text-stone-900">Remove this menu item?</h2>
+            <p className="mt-2 text-sm text-stone-600">
+              <strong>{confirmDelete.title}</strong> and all {confirmDelete.variants.length} duration prices will be hidden from new bookings. Existing bookings remain in history.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirmDelete(null)} disabled={isSaving} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">Keep item</button>
+              <button type="button" onClick={() => void handleDelete()} disabled={isSaving} className="rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800 disabled:opacity-60">Remove item</button>
             </div>
-          </div>
+          </section>
         </div>
       )}
     </div>
   );
-};
+}
 
 export default PackageManagement;
