@@ -1,5 +1,6 @@
 # dependencies
 /node_modules
+/.git
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,6 +11,14 @@
 
 # testing
 /coverage
+/tests
+
+# local environment and secrets (Compose injects runtime env separately)
+.env
+.env.*
+
+# logs
+*.log
 
 # next.js
 /.next/

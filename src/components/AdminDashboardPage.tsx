@@ -3,6 +3,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import LineChart from "./LineChart";
 import useDashboard from "@/hooks/useDashboard";
+import { updateBookingById, type UpdateBookingRequest } from "@/hooks/useBooking";
+import type IBooking from "@/interfaces/IBooking";
+import type IErrorResponse from "@/interfaces/IErrorResponse";
 
 function formatDateParts(year: number, month: number, day: number) {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -66,6 +69,54 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+function PendingBookingActions({
+  booking,
+  disabled,
+  saving,
+  onChangeStatus,
+}: {
+  booking: IBooking;
+  disabled: boolean;
+  saving: boolean;
+  onChangeStatus: (booking: IBooking, status: IBooking["status"]) => void;
+}) {
+  if (booking.status !== "pending") {
+    return <span className="text-sm text-[#A99C8E]">—</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onChangeStatus(booking, "confirmed")}
+        disabled={disabled}
+        aria-label={`Confirm booking for ${booking.customerName || booking.user?.displayName || "customer"}`}
+        className="inline-flex h-9 items-center justify-center rounded-lg bg-[#8C6721] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#735318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B9892C] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+      >
+        {saving ? "Saving…" : "Confirm"}
+      </button>
+      <button
+        type="button"
+        onClick={() => onChangeStatus(booking, "cancelled")}
+        disabled={disabled}
+        aria-label={`Cancel booking for ${booking.customerName || booking.user?.displayName || "customer"}`}
+        className="inline-flex h-9 items-center justify-center rounded-lg border border-[#E8D4CF] bg-white px-3 text-xs font-semibold text-[#8A5144] transition-colors hover:bg-[#F8EEEB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A75E4F] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+      >
+        {saving ? "Saving…" : "Cancel"}
+      </button>
+    </div>
+  );
+}
+
+const isErrorResponse = (value: unknown): value is IErrorResponse =>
+  typeof value === "object" &&
+  value !== null &&
+  "status" in value &&
+  "message" in value;
+
+const isBooking = (value: unknown): value is IBooking =>
+  typeof value === "object" && value !== null && "id" in value;
+
 const AdminDashboardPage = () => {
   const {
     statistics,
@@ -73,8 +124,14 @@ const AdminDashboardPage = () => {
     branchPerformance,
     activities,
     bookingsForDate,
+    bookingsForMonth,
+    loadingBookingsForMonth,
+    bookingsForMonthError,
+    updateBookingInView,
     loadingActivities,
+    reload,
     loadRecentActivityByDate,
+    loadBookingsForMonth,
     selectedActivityDate,
     selectedTrendYear,
     changeTrendYear,
@@ -91,7 +148,14 @@ const AdminDashboardPage = () => {
     const today = new Date();
     return formatDateParts(today.getFullYear(), today.getMonth() + 1, today.getDate());
   });
+  const [scheduleView, setScheduleView] = useState<"day" | "month">("day");
+  const [selectedMonthDraft, setSelectedMonthDraft] = useState(() => {
+    const today = new Date();
+    return formatDateParts(today.getFullYear(), today.getMonth() + 1, 1).slice(0, 7);
+  });
   const [lastUpdated, setLastUpdated] = useState("");
+  const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null);
+  const [bookingActionError, setBookingActionError] = useState<string | null>(null);
 
   useEffect(() => {
     setLastUpdated(new Date().toLocaleString());
@@ -106,6 +170,12 @@ const AdminDashboardPage = () => {
     setSelectedDateDraft(formatDateParts(year, month, day));
   }, [selectedActivityDate]);
 
+  useEffect(() => {
+    if (scheduleView !== "month") return;
+    const [year, month] = selectedMonthDraft.split("-").map(Number);
+    if (year && month) loadBookingsForMonth(year, month);
+  }, [loadBookingsForMonth, scheduleView, selectedMonthDraft]);
+
   const { day: selectedDay, month: selectedMonth, year: selectedYear } = selectedActivityDate;
   const selectedDateLabel = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
@@ -114,6 +184,16 @@ const AdminDashboardPage = () => {
     year: "numeric",
     timeZone: "Asia/Bangkok",
   }).format(new Date(selectedYear, selectedMonth - 1, selectedDay, 12));
+  const [scheduleYear, scheduleMonth] = selectedMonthDraft.split("-").map(Number);
+  const selectedMonthLabel = scheduleYear && scheduleMonth
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        year: "numeric",
+        timeZone: "Asia/Bangkok",
+      }).format(new Date(scheduleYear, scheduleMonth - 1, 1, 12))
+    : "selected month";
+  const displayedBookings = scheduleView === "month" ? bookingsForMonth : bookingsForDate;
+  const scheduleLoading = scheduleView === "month" ? loadingBookingsForMonth : loadingActivities;
 
   const selectDate = (value: string) => {
     setSelectedDateDraft(value);
@@ -141,6 +221,53 @@ const AdminDashboardPage = () => {
     if (Number.isInteger(year) && year >= 2000 && year <= 2200) changeTrendYear(year);
   };
 
+  const handleBookingStatusChange = async (
+    booking: IBooking,
+    status: IBooking["status"]
+  ) => {
+    if (updatingBookingId) return;
+
+    if (status === "cancelled") {
+      const customer = booking.customerName?.trim() || booking.user?.displayName || "this customer";
+      if (!window.confirm(`Cancel the appointment for ${customer}?`)) return;
+    }
+
+    const payload: UpdateBookingRequest = {
+      status,
+      date: booking.date,
+      branchId: booking.branch.id,
+      packageId: booking.package.id,
+      userId: booking.user.id,
+      voucherId: booking.voucher?.id ?? null,
+    };
+
+    setBookingActionError(null);
+    setUpdatingBookingId(booking.id);
+    try {
+      const result = await updateBookingById(
+        booking.id,
+        payload,
+        new AbortController().signal
+      );
+
+      if (isErrorResponse(result) && result.status === "error") {
+        throw new Error(result.message || "Could not update this booking.");
+      }
+      if (!isBooking(result)) {
+        throw new Error("The server returned an invalid booking response.");
+      }
+
+      updateBookingInView(result);
+      reload();
+    } catch (error) {
+      setBookingActionError(
+        error instanceof Error ? error.message : "Could not update this booking. Please try again."
+      );
+    } finally {
+      setUpdatingBookingId(null);
+    }
+  };
+
   const applyTrendYearDraft = () => {
     const year = Number(trendYearDraft);
     if (Number.isInteger(year) && year >= 2000 && year <= 2200) changeTrendYear(year);
@@ -148,7 +275,7 @@ const AdminDashboardPage = () => {
 
   const stats = [
     { label: "Total bookings", value: statistics.totalBookings, note: "All recorded appointments", icon: "calendar" },
-    { label: "Revenue", value: `฿${statistics.totalRevenue.toLocaleString()}`, note: "From completed bookings", icon: "revenue" },
+    { label: "Revenue", value: `฿${statistics.totalRevenue.toLocaleString()}`, note: "From confirmed and completed bookings", icon: "revenue" },
     { label: "Customers", value: statistics.totalUsers, note: "Registered accounts", icon: "customers" },
     { label: "Today's completed", value: statistics.todayBookings, note: "Completed appointments", icon: "today" },
   ];
@@ -196,50 +323,84 @@ const AdminDashboardPage = () => {
           <div className="flex flex-col gap-4 border-b border-[#EEE7DC] p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#A27A2C]">Appointment schedule</p>
-              <h2 id="appointments-heading" className="mt-1 font-serif text-2xl font-semibold text-[#3B261C]">Bookings for {selectedDateLabel}</h2>
-              <p className="mt-1 text-sm text-[#857568]">Customer contact, service, and branch in one view.</p>
+              <h2 id="appointments-heading" className="mt-1 font-serif text-2xl font-semibold text-[#3B261C]">{scheduleView === "month" ? `Appointments in ${selectedMonthLabel}` : `Bookings for ${selectedDateLabel}`}</h2>
+              <p className="mt-1 text-sm text-[#857568]">Confirm or cancel pending appointments from this list.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <input
-                aria-label="Choose appointment date"
-                type="date"
-                value={selectedDateDraft}
-                onChange={(event) => selectDate(event.target.value)}
-                className="h-10 rounded-lg border border-[#DCCFBC] bg-white px-3 text-sm text-[#3B261C] outline-none focus:border-[#B9892C] focus:ring-2 focus:ring-[#B9892C]/20"
-              />
-              {[
-                { label: "Today", offset: 0 },
-                { label: "Yesterday", offset: -1 },
-              ].map((preset) => (
-                <button
-                  type="button"
-                  key={preset.label}
-                  onClick={() => selectDateOffset(preset.offset)}
-                  className={`h-10 rounded-lg border px-3 text-sm font-medium transition-colors ${selectedPreset(preset.offset) ? "border-[#3B261C] bg-[#3B261C] text-[#FFF9ED]" : "border-[#E4DAC9] bg-white text-[#6D5140] hover:bg-[#F7F2E9]"}`}
-                >
-                  {preset.label}
-                </button>
-              ))}
+              <div role="tablist" aria-label="Appointment schedule view" className="inline-flex h-10 rounded-lg border border-[#E4DAC9] bg-[#F8F4ED] p-1">
+                {(["day", "month"] as const).map((view) => (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={scheduleView === view}
+                    key={view}
+                    onClick={() => setScheduleView(view)}
+                    className={`rounded-md px-3 text-sm font-semibold capitalize transition-colors ${scheduleView === view ? "bg-[#3B261C] text-[#FFF9ED] shadow-sm" : "text-[#6D5140] hover:bg-white"}`}
+                  >
+                    {view}
+                  </button>
+                ))}
+              </div>
+              {scheduleView === "day" ? (
+                <>
+                  <input
+                    aria-label="Choose appointment date"
+                    type="date"
+                    value={selectedDateDraft}
+                    onChange={(event) => selectDate(event.target.value)}
+                    className="h-10 rounded-lg border border-[#DCCFBC] bg-white px-3 text-sm text-[#3B261C] outline-none focus:border-[#B9892C] focus:ring-2 focus:ring-[#B9892C]/20"
+                  />
+                  {[
+                    { label: "Today", offset: 0 },
+                    { label: "Yesterday", offset: -1 },
+                  ].map((preset) => (
+                    <button
+                      type="button"
+                      key={preset.label}
+                      onClick={() => selectDateOffset(preset.offset)}
+                      className={`h-10 rounded-lg border px-3 text-sm font-medium transition-colors ${selectedPreset(preset.offset) ? "border-[#3B261C] bg-[#3B261C] text-[#FFF9ED]" : "border-[#E4DAC9] bg-white text-[#6D5140] hover:bg-[#F7F2E9]"}`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <input
+                  aria-label="Choose appointment month"
+                  type="month"
+                  value={selectedMonthDraft}
+                  onChange={(event) => setSelectedMonthDraft(event.target.value)}
+                  className="h-10 rounded-lg border border-[#DCCFBC] bg-white px-3 text-sm text-[#3B261C] outline-none focus:border-[#B9892C] focus:ring-2 focus:ring-[#B9892C]/20"
+                />
+              )}
             </div>
           </div>
 
-          {loadingActivities && bookingsForDate.length === 0 ? (
+          {bookingActionError && (
+            <div role="alert" className="mx-5 mt-4 rounded-lg border border-[#E8D4CF] bg-[#F8EEEB] px-4 py-3 text-sm text-[#8A5144] sm:mx-6">
+              {bookingActionError}
+            </div>
+          )}
+
+          {scheduleLoading && displayedBookings.length === 0 ? (
             <div className="flex min-h-44 items-center justify-center gap-3 text-sm text-[#857568]">
               <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#E9DFCE] border-t-[#B9892C]" />
               Loading appointments…
             </div>
-          ) : bookingsForDate.length === 0 ? (
+          ) : scheduleView === "month" && bookingsForMonthError ? (
+            <div role="alert" className="px-6 py-14 text-center text-sm text-[#8A5144]">{bookingsForMonthError}</div>
+          ) : displayedBookings.length === 0 ? (
             <div className="px-6 py-14 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#F4EAD4] text-[#8C6721]">
                 <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17" /></svg>
               </div>
-              <h3 className="mt-3 font-semibold text-[#49372B]">No appointments for this date</h3>
-              <p className="mt-1 text-sm text-[#8B7D70]">Choose another date to view its bookings.</p>
+              <h3 className="mt-3 font-semibold text-[#49372B]">{scheduleView === "month" ? "No appointments this month" : "No appointments for this date"}</h3>
+              <p className="mt-1 text-sm text-[#8B7D70]">{scheduleView === "month" ? "Choose another month to view its bookings." : "Choose another date to view its bookings."}</p>
             </div>
           ) : (
             <>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full min-w-[900px] text-left">
+              <div className="hidden max-h-[640px] overflow-auto md:block">
+                <table className="w-full min-w-[1040px] text-left">
                   <thead className="bg-[#F8F4ED] text-xs font-semibold uppercase tracking-[0.1em] text-[#806F60]">
                     <tr>
                       <th className="px-6 py-3.5">Customer</th>
@@ -248,10 +409,11 @@ const AdminDashboardPage = () => {
                       <th className="px-4 py-3.5">Service type</th>
                       <th className="px-4 py-3.5">Branch</th>
                       <th className="px-6 py-3.5">Status</th>
+                      <th className="px-6 py-3.5">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F0E9DE]">
-                    {bookingsForDate.map((booking) => {
+                    {displayedBookings.map((booking) => {
                       const customer = booking.customerName?.trim() || booking.user?.displayName || "Guest";
                       const serviceDate = formatBookingDate(booking.date);
                       return (
@@ -269,14 +431,22 @@ const AdminDashboardPage = () => {
                           <td className="px-4 py-4 text-sm font-medium text-[#49372B]">{booking.package?.title || "Service unavailable"}</td>
                           <td className="px-4 py-4 text-sm text-[#6D5140]">{booking.branch?.name || "Branch unavailable"}</td>
                           <td className="px-6 py-4"><StatusPill status={booking.status} /></td>
+                          <td className="px-6 py-4">
+                            <PendingBookingActions
+                              booking={booking}
+                              disabled={updatingBookingId !== null}
+                              saving={updatingBookingId === booking.id}
+                              onChangeStatus={handleBookingStatusChange}
+                            />
+                          </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
               </div>
-              <div className="space-y-3 p-4 md:hidden">
-                {bookingsForDate.map((booking) => {
+              <div className="max-h-[640px] space-y-3 overflow-y-auto p-4 md:hidden">
+                {displayedBookings.map((booking) => {
                   const customer = booking.customerName?.trim() || booking.user?.displayName || "Guest";
                   const serviceDate = formatBookingDate(booking.date);
                   return (
@@ -296,6 +466,16 @@ const AdminDashboardPage = () => {
                         <dt className="text-[#8B7D70]">Branch</dt>
                         <dd className="font-medium text-[#49372B]">{booking.branch?.name || "Branch unavailable"}</dd>
                       </dl>
+                      {booking.status === "pending" && (
+                        <div className="mt-4 border-t border-[#F0E9DE] pt-3">
+                          <PendingBookingActions
+                            booking={booking}
+                            disabled={updatingBookingId !== null}
+                            saving={updatingBookingId === booking.id}
+                            onChangeStatus={handleBookingStatusChange}
+                          />
+                        </div>
+                      )}
                     </article>
                   );
                 })}
@@ -303,7 +483,7 @@ const AdminDashboardPage = () => {
             </>
           )}
           <div className="border-t border-[#EEE7DC] px-5 py-3 text-xs text-[#8B7D70] sm:px-6">
-            {bookingsForDate.length} appointment{bookingsForDate.length === 1 ? "" : "s"} · Times shown in Bangkok time
+            {displayedBookings.length} appointment{displayedBookings.length === 1 ? "" : "s"} · Times shown in Bangkok time
           </div>
         </section>
 

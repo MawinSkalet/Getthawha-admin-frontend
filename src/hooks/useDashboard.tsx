@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getBookingByDate } from "@/hooks/useCalendar";
+import { getBookingByDate, getBookingsByMonth } from "@/hooks/useCalendar";
 import type IBooking from "@/interfaces/IBooking";
 import { getBaseUrl } from "@/lib/api";
 
@@ -245,7 +245,23 @@ export default function useDashboard() {
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [bookingsForDate, setBookingsForDate] = useState<IBooking[]>([]);
+  const [bookingsForMonth, setBookingsForMonth] = useState<IBooking[]>([]);
+  const [loadingBookingsForMonth, setLoadingBookingsForMonth] = useState(false);
+  const [bookingsForMonthError, setBookingsForMonthError] = useState<string | null>(null);
   const [loadingActivities, setLoadingActivities] = useState<boolean>(true);
+
+  const updateBookingInView = useCallback((updatedBooking: IBooking) => {
+    setBookingsForDate((currentBookings) =>
+      currentBookings.map((booking) =>
+        booking.id === updatedBooking.id ? updatedBooking : booking
+      )
+    );
+    setBookingsForMonth((currentBookings) =>
+      currentBookings.map((booking) =>
+        booking.id === updatedBooking.id ? updatedBooking : booking
+      )
+    );
+  }, []);
 
   const nowRef = useRef(new Date());
   const initialDate = nowRef.current;
@@ -275,6 +291,7 @@ export default function useDashboard() {
   const mountedRef = useRef(true);
   const activeLoadControllerRef = useRef<AbortController | null>(null);
   const activityControllerRef = useRef<AbortController | null>(null);
+  const monthLoadControllerRef = useRef<AbortController | null>(null);
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
       const statsResponse = await fetch(
@@ -420,6 +437,7 @@ export default function useDashboard() {
       mountedRef.current = false;
       activeLoadControllerRef.current?.abort();
       activityControllerRef.current?.abort();
+      monthLoadControllerRef.current?.abort();
     };
   }, [startLoad]);
 
@@ -524,15 +542,62 @@ export default function useDashboard() {
     []
   );
 
+  const loadBookingsForMonth = useCallback(
+    async (yearInput: number | string, monthInput: number | string) => {
+      const year = Number(yearInput);
+      const month = Number(monthInput);
+      if (
+        !mountedRef.current ||
+        !Number.isInteger(year) ||
+        year < 2000 ||
+        year > 2200 ||
+        !Number.isInteger(month) ||
+        month < 1 ||
+        month > 12
+      ) {
+        return;
+      }
+
+      monthLoadControllerRef.current?.abort();
+      const controller = new AbortController();
+      monthLoadControllerRef.current = controller;
+      setLoadingBookingsForMonth(true);
+      setBookingsForMonthError(null);
+
+      try {
+        const response = await getBookingsByMonth(year, month, controller.signal);
+        if (!mountedRef.current || controller.signal.aborted) return;
+        setBookingsForMonth(Array.isArray(response?.data) ? response.data : []);
+      } catch (error: unknown) {
+        if (!mountedRef.current || (error instanceof Error && error.name === "AbortError")) return;
+        setBookingsForMonth([]);
+        setBookingsForMonthError(
+          error instanceof Error ? error.message : "Could not load this month's appointments."
+        );
+      } finally {
+        if (monthLoadControllerRef.current === controller) {
+          monthLoadControllerRef.current = null;
+          if (mountedRef.current) setLoadingBookingsForMonth(false);
+        }
+      }
+    },
+    []
+  );
+
   return {
     statistics,
     monthlyTrend,
     branchPerformance,
     activities,
     bookingsForDate,
+    bookingsForMonth,
+    loadingBookingsForMonth,
+    bookingsForMonthError,
+    updateBookingInView,
     loadingActivities,
     reload,
     loadRecentActivityByDate,
+    loadBookingsForMonth,
     selectedActivityDate,
     selectedTrendYear: trendYear,
     changeTrendYear,
