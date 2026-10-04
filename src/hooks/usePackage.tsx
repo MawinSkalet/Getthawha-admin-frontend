@@ -1,5 +1,5 @@
 import IPackage from "@/interfaces/IPackage";
-import IPackageInput from "@/interfaces/IPackageInput";
+import IPackageGroupInput from "@/interfaces/IPackageGroupInput";
 import type IErrorResponse from "@interfaces/IErrorResponse";
 import { getBaseUrl } from "@/lib/api";
 
@@ -13,8 +13,10 @@ async function getAllPackages(abortSignal: AbortSignal) {
     }
   );
 
-  if (response.status == 401 || response.status == 500) {
-    const errorResponse: IErrorResponse = await response.json();
+  if (!response.ok) {
+    const errorResponse: IErrorResponse = await response
+      .json()
+      .catch(() => ({ message: `Could not load the menu (${response.status}).` }));
     return errorResponse;
   }
 
@@ -22,96 +24,45 @@ async function getAllPackages(abortSignal: AbortSignal) {
   return data;
 }
 
-async function createPackage(
-  packageData: IPackageInput,
+async function savePackageGroup(
+  id: string | null,
+  packageData: IPackageGroupInput,
   abortSignal: AbortSignal
 ) {
   const response = await fetch(
-    `${getBaseUrl()}/admin/package`,
+    id
+      ? `${getBaseUrl()}/admin/package/group/${id}`
+      : `${getBaseUrl()}/admin/package/group`,
     {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      method: id ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(packageData),
       signal: abortSignal,
       credentials: "include",
     }
   );
-  if (
-    response.status == 401 ||
-    response.status == 400 ||
-    response.status == 500
-  ) {
+
+  if (!response.ok) {
     const errorResponse: IErrorResponse = await response.json();
     return errorResponse;
   }
-  const data: IPackage = await response.json();
-  return data;
+  return (await response.json()) as IPackage[];
 }
 
-async function updatePackage(
-  id: string,
-  packageData: IPackageInput,
-  abortSignal: AbortSignal
-) {
-  const response = await fetch(
-    `${getBaseUrl()}/admin/package/${id}`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(packageData),
-      signal: abortSignal,
-      credentials: "include",
-    }
-  );
-  if (
-    response.status == 401 ||
-    response.status == 400 ||
-    response.status == 500 ||
-    response.status == 404
-  ) {
-    const errorResponse: IErrorResponse = await response.json();
-    return errorResponse;
+async function deletePackageGroup(id: string, abortSignal: AbortSignal) {
+  const response = await fetch(`${getBaseUrl()}/admin/package/group/${id}`, {
+    method: "DELETE",
+    signal: abortSignal,
+    credentials: "include",
+  });
+  if (!response.ok && response.status !== 204) {
+    return (await response.json()) as IErrorResponse;
   }
-  const data: IPackage = await response.json();
-  return data;
+  return { message: "Package group deleted successfully" };
 }
 
-async function deletePackage(id: string, abortSignal: AbortSignal) {
-  const response = await fetch(
-    `${getBaseUrl()}/admin/package/${id}`,
-    {
-      method: "DELETE",
-      signal: abortSignal,
-      credentials: "include",
-    }
-  );
-  if (
-    response.status == 401 ||
-    response.status == 500 ||
-    response.status == 404
-  ) {
-    const errorResponse: IErrorResponse = await response.json();
-    return errorResponse;
-  }
-
-  // Check if response has content before trying to parse JSON
-  const text = await response.text();
-  if (text) {
-    try {
-      const data: { message: string } = JSON.parse(text);
-      return data;
-    } catch {
-      // If JSON parsing fails, return a default success message
-      return { message: "Package deleted successfully" };
-    }
-  } else {
-    // If no content, return a default success message
-    return { message: "Package deleted successfully" };
-  }
-}
-
-export { getAllPackages, createPackage, updatePackage, deletePackage };
+export {
+  getAllPackages,
+  savePackageGroup,
+  deletePackageGroup,
+};

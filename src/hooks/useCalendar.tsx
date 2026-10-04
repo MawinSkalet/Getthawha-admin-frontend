@@ -80,4 +80,33 @@ async function getDailyBookingsStatus(
   }
 }
 
-export { getBookingByDate, getDailyBookingsStatus };
+async function getBookingsByMonth(
+  year: number,
+  month: number,
+  abortSignal: AbortSignal
+) {
+  const response = await fetch(
+    `${getBaseUrl()}/admin/calendar/appointments/${year}/${month}`,
+    {
+      method: "GET",
+      signal: abortSignal,
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    let message = `Could not load appointments (${response.status}).`;
+    try {
+      const body = (await response.json()) as IErrorResponse;
+      message = body.message || message;
+    } catch {
+      // Keep the status-based message when the server response is not JSON.
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as { status: string; data: IBooking[] };
+}
+
+export { getBookingByDate, getDailyBookingsStatus, getBookingsByMonth };

@@ -24,8 +24,9 @@ async function getReviews(
     }
   );
 
-  if (response.status === 401 || response.status === 500) {
-    const errorResponse: IErrorResponse = await response.json();
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const errorResponse: IErrorResponse = {status:"error",message:data.message || data.error || "Request failed ("+response.status+")"};
     return errorResponse;
   }
 
@@ -51,13 +52,9 @@ async function updateReviewApproval(
     }
   );
 
-  if (
-    response.status === 400 ||
-    response.status === 401 ||
-    response.status === 404 ||
-    response.status === 500
-  ) {
-    const errorResponse: IErrorResponse = await response.json();
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const errorResponse: IErrorResponse = {status:"error",message:data.message || data.error || "Request failed ("+response.status+")"};
     return errorResponse;
   }
 
@@ -75,12 +72,9 @@ async function deleteReview(id: string, abortSignal: AbortSignal) {
     }
   );
 
-  if (
-    response.status === 401 ||
-    response.status === 404 ||
-    response.status === 500
-  ) {
-    const errorResponse: IErrorResponse = await response.json();
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const errorResponse: IErrorResponse = {status:"error",message:data.message || data.error || "Request failed ("+response.status+")"};
     return errorResponse;
   }
 

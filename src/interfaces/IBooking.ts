@@ -9,6 +9,8 @@ export default interface IBooking {
   duration: number;
   totalPrice: number;
   status: "pending" | "confirmed" | "cancelled" | "completed";
+  customerName?: string | null;
+  customerPhone?: string | null;
   user: IUser;
   branch: Pick<IBranch, "id" | "name">;
   package: Pick<IPackage, "id" | "title">;

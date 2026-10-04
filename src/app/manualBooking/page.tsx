@@ -72,6 +72,7 @@ const AddBooking = () => {
   // Modern date/time selection (separate fields like reference)
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [bookings, setBookings] = useState<IBooking[]>([]);
   const [statusFilter, setStatusFilter] = useState<"all" | IBooking["status"]>(
     "all"
@@ -285,6 +286,10 @@ const AddBooking = () => {
         alert("Please fill in all fields correctly.");
         return;
       }
+      if (customerPhone.trim() && !/^[\d+().\s-]{5,32}$/.test(customerPhone.trim())) {
+        alert("Please enter a valid customer phone number.");
+        return;
+      }
 
       try {
         // Combine date and time into a Date object
@@ -296,7 +301,8 @@ const AddBooking = () => {
           dateTime,
           selectedUser.id,
           selectedVoucher ? selectedVoucher.id : null,
-          new AbortController().signal
+          new AbortController().signal,
+          customerPhone
         );
 
         if (response instanceof Error) {
@@ -311,6 +317,7 @@ const AddBooking = () => {
         setSelectedVoucher(null);
         setDate("");
         setTime("");
+        setCustomerPhone("");
 
         // Refetch bookings to update the list
         fetchBookings();
@@ -327,6 +334,7 @@ const AddBooking = () => {
       selectedPackage,
       date,
       time,
+      customerPhone,
       selectedVoucher,
       fetchBookings,
     ]
@@ -709,6 +717,22 @@ const AddBooking = () => {
                       .filter(Boolean)}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label htmlFor="manual-customer-phone" className="block text-sm font-medium text-[#49372B] mb-2">
+                  Customer phone (optional)
+                </label>
+                <input
+                  id="manual-customer-phone"
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  value={customerPhone}
+                  onChange={(event) => setCustomerPhone(event.target.value)}
+                  placeholder="Add a number for appointment contact"
+                  className="w-full px-3 py-2 border border-[#DCCFBC] rounded-lg text-[#30231D] focus:ring-2 focus:ring-[#B9892C] focus:border-transparent bg-white"
+                />
               </div>
 
               {/* Simple Summary */}

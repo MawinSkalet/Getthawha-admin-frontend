@@ -21,8 +21,9 @@ async function getAllBooking(page = 1, abortSignal: AbortSignal) {
     }
   );
 
-  if (response.status == 401 || response.status == 500) {
-    const errorResponse: IErrorResponse = await response.json();
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const errorResponse: IErrorResponse = {status:"error",message:data.message || data.error || "Request failed ("+response.status+")"};
     return errorResponse;
   }
 
@@ -36,7 +37,8 @@ async function createBooking(
   date: Date,
   userId: string,
   voucherId: string | null,
-  abortSignal: AbortSignal
+  abortSignal: AbortSignal,
+  customerPhone?: string
 ) {
   // Use ISO 8601 in UTC with Z to match backend schema
   const toISOZ = (d: Date) => d.toISOString();
@@ -54,18 +56,16 @@ async function createBooking(
         date: toISOZ(date),
         userId,
         voucherId,
+        customerPhone: customerPhone?.trim() || undefined,
       }),
       signal: abortSignal,
       credentials: "include",
     }
   );
 
-  if (
-    response.status == 401 ||
-    response.status == 400 ||
-    response.status == 500
-  ) {
-    const errorResponse: IErrorResponse = await response.json();
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const errorResponse: IErrorResponse = {status:"error",message:data.message || data.error || "Request failed ("+response.status+")"};
     return errorResponse;
   }
 
@@ -107,13 +107,9 @@ async function updateBookingById(
     }
   );
 
-  if (
-    response.status == 401 ||
-    response.status == 400 ||
-    response.status == 500 ||
-    response.status == 404
-  ) {
-    const errorResponse: IErrorResponse = await response.json();
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const errorResponse: IErrorResponse = {status:"error",message:data.message || data.error || "Request failed ("+response.status+")"};
     return errorResponse;
   }
 

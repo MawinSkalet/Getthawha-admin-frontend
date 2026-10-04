@@ -8,7 +8,8 @@ RUN bun install --frozen-lockfile
 
 COPY . .
 
-ENV NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 
 RUN rm -rf .next
 RUN bun run build

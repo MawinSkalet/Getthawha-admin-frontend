@@ -7,4 +7,6 @@ export default interface IPackage {
   duration: number; // in minutes
   pictureUrl: string | null;
   note: string | null;
+  category: string;
+  isActive: boolean;
 }

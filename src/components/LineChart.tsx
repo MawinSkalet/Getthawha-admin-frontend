@@ -14,7 +14,6 @@ import {
 import type {
   ChartData,
   ChartOptions,
-  ScriptableContext,
   TooltipItem,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
@@ -64,10 +63,10 @@ export default function LineChart({ trend, loading = false }: LineChartProps) {
           display: false, // Hide legend for cleaner look
         },
         tooltip: {
-          backgroundColor: "rgba(255, 255, 255, 0.95)",
-          titleColor: "#1f2937",
-          bodyColor: "#6b7280",
-          borderColor: "#e5e7eb",
+          backgroundColor: "rgba(251, 247, 238, 0.98)",
+          titleColor: "#2D211A",
+          bodyColor: "#6D5B4E",
+          borderColor: "#E9DFCE",
           borderWidth: 1,
           cornerRadius: 8,
           displayColors: false,
@@ -96,7 +95,7 @@ export default function LineChart({ trend, loading = false }: LineChartProps) {
             display: false,
           },
           ticks: {
-            color: "#9ca3af",
+            color: "#806F60",
             font: {
               size: 12,
               weight: "normal" as const,
@@ -106,14 +105,14 @@ export default function LineChart({ trend, loading = false }: LineChartProps) {
         y: {
           beginAtZero: true,
           grid: {
-            color: "#f3f4f6",
+            color: "#EEE7DC",
             drawBorder: false,
           },
           border: {
             display: false,
           },
           ticks: {
-            color: "#9ca3af",
+            color: "#806F60",
             font: {
               size: 12,
             },
@@ -152,19 +151,12 @@ export default function LineChart({ trend, loading = false }: LineChartProps) {
         {
           label: "Monthly Bookings",
           data,
-          borderColor: "#3b82f6",
-          backgroundColor: (context: ScriptableContext<"line">) => {
-            const ctx = context.chart.ctx;
-            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-            gradient.addColorStop(0, "rgba(59, 130, 246, 0.3)");
-            gradient.addColorStop(0.5, "rgba(59, 130, 246, 0.1)");
-            gradient.addColorStop(1, "rgba(59, 130, 246, 0)");
-            return gradient;
-          },
+          borderColor: "#B9892C",
+          backgroundColor: "rgba(214, 169, 68, 0.12)",
           fill: true,
-          pointBackgroundColor: "#3b82f6",
+          pointBackgroundColor: "#B9892C",
           pointBorderColor: "#ffffff",
-          pointHoverBackgroundColor: "#3b82f6",
+          pointHoverBackgroundColor: "#B9892C",
           pointHoverBorderColor: "#ffffff",
         },
       ],
@@ -175,7 +167,7 @@ export default function LineChart({ trend, loading = false }: LineChartProps) {
     return (
       <div className="w-full h-full flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#B9892C]"></div>
           <p className="text-sm text-gray-500">Loading chart data...</p>
         </div>
       </div>
