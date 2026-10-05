@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import AdminNavbar from "@/components/AdminNavBar";
 import { getBookingByDate, getDailyBookingsStatus } from "@/hooks/useCalendar";
@@ -25,9 +25,8 @@ interface DateDetail {
 export default function BookingCalendarPage() {
   const bookingRef = useRef<HTMLDivElement>(null);
 
-  const [fullCalendar, setFullCalendar] = useState<DateDetail[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
 
   const initDate = new Date();
   const [currentMonth, setCurrentMonth] = useState(initDate.getMonth() + 1);
@@ -44,13 +43,11 @@ export default function BookingCalendarPage() {
   );
 
   const [bookings, setBookings] = useState<IBooking[]>([]);
-  const [filteredBookings, setFilteredBookings] = useState<IBooking[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [dailyBookingsStatus, setDailyBookingsStatus] =
     useState<IDailyBookingsStatus | null>(null);
 
-  useEffect(() => {
-    setIsLoading(true);
+  const fullCalendar = useMemo(() => {
     const today = new Date();
     const currentDay = today.getDate();
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
@@ -80,7 +77,10 @@ export default function BookingCalendarPage() {
       });
     }
 
-    setFullCalendar(calendar);
+    return calendar;
+  }, [currentMonth, currentYear]);
+
+  useEffect(() => {
 
     const abortController = new AbortController();
     const { signal } = abortController;
@@ -138,6 +138,7 @@ export default function BookingCalendarPage() {
   ];
 
   const handleMonthChange = (direction: "prev" | "next") => {
+    setIsLoading(true);
     if (direction === "prev") {
       if (currentMonth === 1) {
         setCurrentMonth(12);
@@ -161,7 +162,6 @@ export default function BookingCalendarPage() {
     const { signal } = abortController;
 
     if (selectedDay && selectedMonth && selectedYear) {
-      setBookingsLoading(true);
       getBookingByDate(selectedDay, selectedMonth, selectedYear, signal)
         .then((data) => {
           if (!signal.aborted) {
@@ -190,10 +190,9 @@ export default function BookingCalendarPage() {
     };
   }, [selectedDay, selectedMonth, selectedYear]);
 
-  // Filter bookings based on search and status
-  useEffect(() => {
+  const filteredBookings = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
-    const filtered = normalizedSearch
+    return normalizedSearch
       ? bookings.filter(
           (booking) =>
             booking.user.displayName
@@ -205,8 +204,6 @@ export default function BookingCalendarPage() {
             booking.branch.name.toLowerCase().includes(normalizedSearch)
         )
       : bookings;
-
-    setFilteredBookings(filtered);
   }, [bookings, searchTerm]);
 
   // Get booking count for a specific day

@@ -263,8 +263,7 @@ export default function useDashboard() {
     );
   }, []);
 
-  const nowRef = useRef(new Date());
-  const initialDate = nowRef.current;
+  const [initialDate] = useState(() => new Date());
   const [trendYear, setTrendYear] = useState<number>(
     initialDate.getFullYear()
   );

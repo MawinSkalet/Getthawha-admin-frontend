@@ -29,7 +29,6 @@ export default function VoucherManagementPage() {
   const [voucherToDelete, setVoucherToDelete] = useState<IVoucher | null>(null);
 
   const fetchVouchers = useCallback(async (signal: AbortSignal) => {
-    setIsLoading(true);
     const data = await getAllVouchers(signal);
 
     if (Array.isArray(data)) {
@@ -200,7 +199,9 @@ export default function VoucherManagementPage() {
   useEffect(() => {
     const abort = new AbortController();
 
-    fetchVouchers(abort.signal);
+    queueMicrotask(() => {
+      if (!abort.signal.aborted) void fetchVouchers(abort.signal);
+    });
 
     return () => {
       abort.abort(); // Clean up the fetch request on component unmount
@@ -379,7 +380,10 @@ export default function VoucherManagementPage() {
                 All Vouchers ({vouchers.length})
               </h2>
               <button
-                onClick={() => fetchVouchers(new AbortController().signal)}
+                onClick={() => {
+                  setIsLoading(true);
+                  void fetchVouchers(new AbortController().signal);
+                }}
                 className="text-blue-600 text-sm hover:text-blue-700 flex flex-row gap-2 cursor-pointer"
                 disabled={isLoading}
               >

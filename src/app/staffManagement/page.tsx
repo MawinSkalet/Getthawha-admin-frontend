@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   UserIcon,
   PlusIcon,
@@ -24,7 +24,7 @@ interface StaffFormData extends IStaffInput {
 const StaffManagement = () => {
   // State management
   const [staff, setStaff] = useState<IStaff[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formData, setFormData] = useState<StaffFormData>({
     userName: "",
@@ -54,14 +54,8 @@ const StaffManagement = () => {
 
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Fetch staff on component mount
-  useEffect(() => {
-    fetchStaff();
-  }, []);
-
   // API functions
-  const fetchStaff = async () => {
-    setIsLoading(true);
+  const fetchStaff = useCallback(async () => {
     try {
       const abortController = new AbortController();
       const response = await getAllStaff(abortController.signal);
@@ -86,7 +80,18 @@ const StaffManagement = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // Fetch staff on component mount after the callback has been initialized.
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void fetchStaff();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchStaff]);
 
   // Form handlers
   const handleInputChange = (

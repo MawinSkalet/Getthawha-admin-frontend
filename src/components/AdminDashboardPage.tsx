@@ -6,6 +6,7 @@ import useDashboard from "@/hooks/useDashboard";
 import { updateBookingById, type UpdateBookingRequest } from "@/hooks/useBooking";
 import type IBooking from "@/interfaces/IBooking";
 import type IErrorResponse from "@/interfaces/IErrorResponse";
+import { useHydrated } from "@/hooks/useHydrated";
 
 function formatDateParts(year: number, month: number, day: number) {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -143,6 +144,7 @@ const AdminDashboardPage = () => {
     years.add(selectedTrendYear);
     return [...years].sort((left, right) => right - left);
   }, [currentYear, selectedTrendYear]);
+  const hydrated = useHydrated();
   const [trendYearDraft, setTrendYearDraft] = useState(String(selectedTrendYear));
   const [selectedDateDraft, setSelectedDateDraft] = useState(() => {
     const today = new Date();
@@ -153,22 +155,9 @@ const AdminDashboardPage = () => {
     const today = new Date();
     return formatDateParts(today.getFullYear(), today.getMonth() + 1, 1).slice(0, 7);
   });
-  const [lastUpdated, setLastUpdated] = useState("");
+  const [lastUpdated] = useState(() => new Date().toLocaleString());
   const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null);
   const [bookingActionError, setBookingActionError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLastUpdated(new Date().toLocaleString());
-  }, []);
-
-  useEffect(() => {
-    setTrendYearDraft(String(selectedTrendYear));
-  }, [selectedTrendYear]);
-
-  useEffect(() => {
-    const { day, month, year } = selectedActivityDate;
-    setSelectedDateDraft(formatDateParts(year, month, day));
-  }, [selectedActivityDate]);
 
   useEffect(() => {
     if (scheduleView !== "month") return;
@@ -206,6 +195,7 @@ const AdminDashboardPage = () => {
     const date = new Date();
     date.setHours(12, 0, 0, 0);
     date.setDate(date.getDate() + offsetDays);
+    setSelectedDateDraft(formatDateParts(date.getFullYear(), date.getMonth() + 1, date.getDate()));
     loadRecentActivityByDate(date.getDate(), date.getMonth() + 1, date.getFullYear());
   };
 
@@ -296,7 +286,7 @@ const AdminDashboardPage = () => {
             <p className="mt-1 text-sm text-[#857568]">Bookings and branch activity at a glance.</p>
           </div>
           <div className="text-sm text-[#857568]" suppressHydrationWarning>
-            {lastUpdated ? `Updated ${lastUpdated}` : "Loading update time…"}
+            {hydrated ? `Updated ${lastUpdated}` : "Loading update time…"}
           </div>
         </header>
 

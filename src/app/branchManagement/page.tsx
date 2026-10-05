@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import AdminNavbar from "@/components/AdminNavBar";
 import {
@@ -35,9 +35,8 @@ interface BranchFormData extends IBranchInput {
 const BranchManagement = () => {
   // State management
   const [branches, setBranches] = useState<IBranch[]>([]);
-  const [filteredBranches, setFilteredBranches] = useState<IBranch[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<IBranch | null>(null);
   const [formData, setFormData] = useState<BranchFormData>({
@@ -71,20 +70,14 @@ const BranchManagement = () => {
     onConfirm: () => void;
   }>({ open: false, title: "", message: "", onConfirm: () => {} });
 
-  // Fetch branches on component mount
-  useEffect(() => {
-    fetchBranches();
-  }, []);
-
-  // Filter branches based on search term
-  useEffect(() => {
-    const filtered = branches.filter(
+  const filteredBranches = useMemo(() => {
+    const query = searchTerm.toLowerCase();
+    return branches.filter(
       (branch) =>
-        branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        branch.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        branch.name.toLowerCase().includes(query) ||
+        branch.address.toLowerCase().includes(query) ||
         branch.phone.includes(searchTerm)
     );
-    setFilteredBranches(filtered);
   }, [branches, searchTerm]);
 
   // Success toast effect
@@ -98,8 +91,7 @@ const BranchManagement = () => {
   }, [showSuccessToast]);
 
   // API functions
-  const fetchBranches = async () => {
-    setIsLoading(true);
+  const fetchBranches = useCallback(async () => {
     try {
       const abortController = new AbortController();
       const result = await getAllBranch(abortController.signal);
@@ -124,7 +116,18 @@ const BranchManagement = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // Fetch branches on component mount after the callback has been initialized.
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void fetchBranches();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchBranches]);
   const resetForm = useCallback(() => {
     setFormData({
       name: "",
@@ -463,7 +466,10 @@ const BranchManagement = () => {
                 <span>Total: {branches.length}</span>
               </div>
               <button
-                onClick={fetchBranches}
+                onClick={() => {
+                  setIsLoading(true);
+                  void fetchBranches();
+                }}
                 className="text-blue-600 hover:text-blue-700 font-medium"
                 disabled={isLoading}
               >

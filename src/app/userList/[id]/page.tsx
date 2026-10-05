@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import {
   PhoneIcon,
@@ -29,79 +29,74 @@ const UserData = () => {
   // State management
   const [user, setUser] = useState<User | null>(null);
   const [bookings, setBookings] = useState<IBooking[]>([]);
-  const [filteredBookings, setFilteredBookings] = useState<IBooking[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  // Fetch user data
-  useEffect(() => {
-    fetchUserData();
-    fetchUserBookings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
-
-  // Filter bookings based on search term
-  useEffect(() => {
-    if (searchTerm.trim() === "") {
-      setFilteredBookings(bookings);
-    } else {
-      const filtered = bookings.filter(
-        (booking) =>
-          booking.package.title
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          booking.branch.name
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          booking.date.includes(searchTerm)
-      );
-      setFilteredBookings(filtered);
-    }
-  }, [searchTerm, bookings]);
+  const filteredBookings = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return bookings.filter(
+      (booking) =>
+        booking.package.title.toLowerCase().includes(query) ||
+        booking.branch.name.toLowerCase().includes(query) ||
+        booking.date.includes(searchTerm)
+    );
+  }, [bookings, searchTerm]);
 
   // Fetch user data using useUser hook
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async (isCurrentRequest: () => boolean = () => true) => {
     setIsLoading(true);
     setError(null);
-
     try {
       const result = await getUserById(userId, new AbortController().signal);
+      if (!isCurrentRequest()) return;
       if ("message" in result) {
         setError(result.message || "Failed to load user data");
         setUser(null);
       } else {
         setUser(result as User);
+        setError(null);
       }
     } catch {
+      if (!isCurrentRequest()) return;
       setError("Failed to load user data");
       setUser(null);
     } finally {
-      setIsLoading(false);
+      if (isCurrentRequest()) setIsLoading(false);
     }
-  };
+  }, [userId]);
 
   // Fetch user bookings using useBooking hook
-  const fetchUserBookings = async () => {
+  const fetchUserBookings = useCallback(async (isCurrentRequest: () => boolean = () => true) => {
     try {
       const result = await getAllBooking(1, new AbortController().signal);
+      if (!isCurrentRequest()) return;
       if ("message" in result) {
         console.error("Failed to load bookings:", result.message);
         setBookings([]);
       } else {
-        // Filter bookings for this specific user
-        const userBookings = (result as IBooking[]).filter(
-          (booking) => booking.user.id === userId
-        );
-        setBookings(userBookings);
-        setFilteredBookings(userBookings);
+        setBookings((result as IBooking[]).filter((booking) => booking.user.id === userId));
       }
     } catch (error) {
+      if (!isCurrentRequest()) return;
       console.error("Failed to load bookings:", error);
       setBookings([]);
     }
-  };
+  }, [userId]);
+
+  // Fetch user data when the route id changes.
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      void fetchUserData(() => active);
+      void fetchUserBookings(() => active);
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchUserData, fetchUserBookings]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -171,7 +166,7 @@ const UserData = () => {
         <div className="p-6 bg-base-100 min-h-screen">
           <div className="alert alert-error">
             <span>{error}</span>
-            <button className="btn btn-sm btn-outline" onClick={fetchUserData}>
+            <button className="btn btn-sm btn-outline" onClick={() => void fetchUserData()}>
               Retry
             </button>
           </div>

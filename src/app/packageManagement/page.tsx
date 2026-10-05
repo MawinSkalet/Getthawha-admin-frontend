@@ -165,7 +165,6 @@ function PackageManagement() {
   const [notification, setNotification] = useState("");
 
   const fetchPackages = useCallback(async () => {
-    setIsLoading(true);
     try {
       const result = await getAllPackages(new AbortController().signal);
       if (Array.isArray(result)) {
@@ -181,7 +180,13 @@ function PackageManagement() {
   }, []);
 
   useEffect(() => {
-    void fetchPackages();
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void fetchPackages();
+    });
+    return () => {
+      active = false;
+    };
   }, [fetchPackages]);
 
   useEffect(() => {
@@ -513,7 +518,10 @@ function PackageManagement() {
             </select>
             <button
               type="button"
-              onClick={() => void fetchPackages()}
+              onClick={() => {
+                setIsLoading(true);
+                void fetchPackages();
+              }}
               disabled={isLoading}
               className="rounded-lg border border-stone-300 px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
             >

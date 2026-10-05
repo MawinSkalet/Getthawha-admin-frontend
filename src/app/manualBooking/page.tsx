@@ -202,7 +202,11 @@ const AddBooking = () => {
     };
 
     fetchBranches();
-    fetchBookings(1, bookingController.signal);
+    queueMicrotask(() => {
+      if (!bookingController.signal.aborted) {
+        void fetchBookings(1, bookingController.signal);
+      }
+    });
     fetchPackages();
     fetchVouchers();
 

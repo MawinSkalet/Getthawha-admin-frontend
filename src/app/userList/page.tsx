@@ -41,10 +41,7 @@ const UserList: React.FC = () => {
 
       if (append) {
         setLoadingMore(true);
-      } else {
-        setLoading(true);
       }
-      setError(null);
 
       try {
         const result = await getAllUsers(page, abortController.signal);
@@ -99,8 +96,12 @@ const UserList: React.FC = () => {
   );
 
   useEffect(() => {
-    fetchUsers(1, false);
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void fetchUsers(1, false);
+    });
     return () => {
+      active = false;
       abortControllerRef.current?.abort();
     };
   }, [fetchUsers]);

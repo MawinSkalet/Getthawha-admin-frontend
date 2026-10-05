@@ -3,6 +3,7 @@ FROM oven/bun:1.3.14 AS production-deps
 WORKDIR /app
 
 COPY package.json bun.lock ./
+COPY vendor ./vendor
 
 RUN bun install --production --frozen-lockfile
 
@@ -11,10 +12,13 @@ FROM oven/bun:1.3.14 AS builder
 WORKDIR /app
 
 COPY package*.json bun.lock ./
+COPY vendor ./vendor
 
 RUN bun install --frozen-lockfile
 
 COPY . .
+
+RUN bun run lint --max-warnings=0
 
 ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
