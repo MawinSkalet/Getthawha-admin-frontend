@@ -1,7 +1,7 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import AdminNavbar from "@/components/AdminNavBar";
+import UserAvatar from "@/components/UserAvatar";
 import { getBookingByDate, getDailyBookingsStatus } from "@/hooks/useCalendar";
 import IBooking from "@/interfaces/IBooking";
 import IDailyBookingsStatus from "@/interfaces/IDailyBookingsStatus";
@@ -11,7 +11,6 @@ import {
   CalendarDaysIcon,
   ClockIcon,
   MapPinIcon,
-  UserIcon,
   MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 
@@ -21,6 +20,27 @@ interface DateDetail {
   year: number;
   isToday: boolean;
 }
+
+const bookingStatusLabels: Record<IBooking["status"], string> = {
+  pending: "Pending",
+  confirmed: "Confirmed",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
+const bookingStatusStyles: Record<IBooking["status"], string> = {
+  pending: "border-[#E7D6AF] bg-[#FBF2DD] text-[#785819]",
+  confirmed: "border-[#D8E3D3] bg-[#EFF5EC] text-[#496446]",
+  completed: "border-[#DED6CC] bg-[#F3EFE9] text-[#66594D]",
+  cancelled: "border-[#E8D4CF] bg-[#F8EEEB] text-[#8A5144]",
+};
+
+const bookingStatusAccent: Record<IBooking["status"], string> = {
+  pending: "bg-[#B9892C]",
+  confirmed: "bg-[#718468]",
+  completed: "bg-[#A99C8E]",
+  cancelled: "bg-[#A75E4F]",
+};
 
 export default function BookingCalendarPage() {
   const bookingRef = useRef<HTMLDivElement>(null);
@@ -439,303 +459,139 @@ export default function BookingCalendarPage() {
           {selectedDay && selectedMonth && selectedYear && (
             <div
               ref={bookingRef}
-              className="bg-white rounded-lg shadow-sm border border-gray-200"
+              className="overflow-hidden rounded-2xl border border-[#E9DFCE] bg-[#FFFDFA] shadow-[0_2px_12px_rgba(59,38,28,0.05)]"
             >
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="border-b border-[#EEE7DC] p-5 sm:p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900">
-                      Bookings
-                    </h2>
-                    <p className="text-sm text-gray-600">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h2 className="text-xl font-semibold text-[#3B261C]">
+                        Bookings
+                      </h2>
+                      <span className="rounded-full bg-[#F4EAD4] px-2.5 py-1 text-xs font-semibold text-[#735318]">
+                        {bookings.length} {bookings.length === 1 ? "booking" : "bookings"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-[#857568]">
                       {formatSelectedDate()}
                     </p>
                   </div>
 
-                  {/* Search and Filter */}
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search bookings..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+                  <div className="relative w-full sm:max-w-xs">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#9A8D81]" />
+                    <input
+                      type="text"
+                      aria-label="Search bookings"
+                      placeholder="Search bookings..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-[#DCCFBC] bg-white pl-10 pr-4 text-sm text-[#30231D] placeholder:text-[#9A8D81] focus:border-[#B9892C] focus:outline-none focus:ring-2 focus:ring-[#B9892C]/20"
+                    />
                   </div>
                 </div>
               </div>
 
-              <div className="p-6">
+              <div className="space-y-3 p-4 sm:p-6">
                 {bookingsLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full mr-3"></div>
-                    <span className="text-gray-600">Loading bookings...</span>
+                  <div className="flex items-center justify-center gap-3 py-12 text-sm text-[#756457]">
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#E9DFCE] border-t-[#B9892C]" />
+                    <span>Loading bookings...</span>
                   </div>
                 ) : filteredBookings.length === 0 ? (
-                  <div className="text-center py-12">
-                    <CalendarDaysIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <div className="py-12 text-center">
+                    <CalendarDaysIcon className="mx-auto mb-4 h-11 w-11 text-[#B7A998]" />
+                    <h3 className="mb-2 text-lg font-semibold text-[#3B261C]">
                       No bookings found
                     </h3>
-                    <p className="text-gray-600">
+                    <p className="text-sm text-[#756457]">
                       {searchTerm
                         ? "No bookings match your search."
                         : "No bookings scheduled for this date."}
                     </p>
                   </div>
                 ) : (
-                  <div className="grid gap-4">
+                  <div className="grid gap-3">
                     {filteredBookings.map((booking) => {
                       const bookingDate = new Date(booking.date);
-                      const isUpcoming = bookingDate > new Date();
-                      const isBookingToday =
-                        bookingDate.toDateString() ===
-                        new Date().toDateString();
-
-                      // Format time with more detail
-                      const timeString = bookingDate.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true,
-                      });
+                      const timeString = Number.isNaN(bookingDate.getTime())
+                        ? "Time unavailable"
+                        : bookingDate.toLocaleTimeString("en-US", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                            timeZone: "Asia/Bangkok",
+                          });
+                      const status = bookingStatusLabels[booking.status]
+                        ? booking.status
+                        : "pending";
+                      const customerName = booking.user?.displayName || "Customer";
+                      const serviceName = booking.package?.title || "Service unavailable";
+                      const branchName = booking.branch?.name || "Branch unavailable";
 
                       return (
-                        <div
+                        <article
                           key={booking.id}
-                          className={`
-                            border rounded-lg p-4 transition-all duration-200 relative
-                            ${
-                              isUpcoming
-                                ? "border-green-200 bg-green-50 hover:bg-green-100 shadow-md hover:shadow-lg"
-                                : isBookingToday
-                                ? "border-orange-200 bg-orange-50 hover:bg-orange-100 shadow-md"
-                                : "border-gray-200 bg-gray-50 hover:bg-gray-100 opacity-75"
-                            }
-                          `}
+                          className="relative overflow-hidden rounded-xl border border-[#E9DFCE] bg-[#FFFDFA] p-4 shadow-[0_1px_4px_rgba(59,38,28,0.04)] transition-shadow hover:shadow-[0_4px_14px_rgba(59,38,28,0.08)] sm:p-5"
                         >
-                          {/* Prominent Time Badge */}
-                          <div
-                            className={`
-                            absolute top-4 right-4 px-3 py-2 rounded-lg font-bold text-lg shadow-md
-                            ${
-                              isUpcoming
-                                ? "bg-green-600 text-white"
-                                : isBookingToday
-                                ? "bg-orange-500 text-white animate-pulse"
-                                : "bg-gray-500 text-white"
-                            }
-                          `}
-                          >
-                            {timeString}
-                          </div>
-
-                          <div className="relative pr-20 pb-8">
-                            {/* Status indicator */}
-                            <div
-                              className={`
-                              absolute left-0 top-0 bottom-0 w-1 rounded-l-lg
-                              ${
-                                isUpcoming
-                                  ? "bg-green-500"
-                                  : isBookingToday
-                                  ? "bg-orange-500"
-                                  : "bg-gray-400"
-                              }
-                            `}
-                            ></div>
-
-                            <div className="flex items-center gap-4 flex-1 ml-4">
-                              {/* User Avatar with status ring */}
-                              <div className="flex-shrink-0 relative">
-                                <Image
-                                  src={booking.user.pictureUrl}
-                                  alt={
-                                    booking.user.displayName || "User Avatar"
-                                  }
-                                  width={48}
-                                  height={48}
-                                  className={`
-                                    w-12 h-12 rounded-full object-cover border-2 transition-all
-                                    ${
-                                      isUpcoming
-                                        ? "border-green-300 ring-2 ring-green-200"
-                                        : isBookingToday
-                                        ? "border-orange-300 ring-2 ring-orange-200"
-                                        : "border-gray-300"
-                                    }
-                                  `}
-                                  unoptimized
+                          <span
+                            aria-hidden="true"
+                            className={`absolute inset-y-4 left-0 w-1 rounded-r-full ${bookingStatusAccent[status]}`}
+                          />
+                          <div className="pl-3">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                                <UserAvatar
+                                  name={customerName}
+                                  pictureUrl={booking.user?.pictureUrl}
+                                  size="lg"
                                 />
-                                {/* Status dot */}
-                                <div
-                                  className={`
-                                  absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white
-                                  ${
-                                    isUpcoming
-                                      ? "bg-green-500"
-                                      : isBookingToday
-                                      ? "bg-orange-500 animate-pulse"
-                                      : "bg-gray-400"
-                                  }
-                                `}
-                                ></div>
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h3 className="truncate text-base font-semibold text-[#3B261C] sm:text-lg">
+                                      {customerName}
+                                    </h3>
+                                    <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${bookingStatusStyles[status]}`}>
+                                      {bookingStatusLabels[status]}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-sm text-[#857568]">Appointment</p>
+                                </div>
                               </div>
 
-                              {/* Booking Details */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-3">
-                                  <UserIcon
-                                    className={`
-                                    w-4 h-4 
-                                    ${
-                                      isUpcoming
-                                        ? "text-green-600"
-                                        : isBookingToday
-                                        ? "text-orange-600"
-                                        : "text-gray-400"
-                                    }
-                                  `}
-                                  />
-                                  <span
-                                    className={`
-                                    font-semibold text-lg
-                                    ${
-                                      isUpcoming
-                                        ? "text-green-900"
-                                        : isBookingToday
-                                        ? "text-orange-900"
-                                        : "text-gray-600"
-                                    }
-                                  `}
-                                  >
-                                    {booking.user.displayName}
-                                  </span>
-                                  {/* Status badges */}
-                                  {isUpcoming && (
-                                    <span className="px-2 py-1 bg-green-200 text-green-800 text-xs font-medium rounded-full">
-                                      Upcoming
-                                    </span>
-                                  )}
-                                  {isBookingToday && (
-                                    <span className="px-2 py-1 bg-orange-200 text-orange-800 text-xs font-medium rounded-full animate-pulse">
-                                      Today
-                                    </span>
-                                  )}
-                                </div>
-
-                                {/* Enhanced Time Display */}
-                                <div className="mb-3">
-                                  <div
-                                    className={`
-                                    inline-flex items-center gap-2 px-4 py-2 rounded-full text-base font-semibold
-                                    ${
-                                      isUpcoming
-                                        ? "bg-green-100 text-green-800 border border-green-300"
-                                        : isBookingToday
-                                        ? "bg-orange-100 text-orange-800 border border-orange-300"
-                                        : "bg-gray-100 text-gray-600 border border-gray-300"
-                                    }
-                                  `}
-                                  >
-                                    <ClockIcon
-                                      className={`
-                                      w-5 h-5
-                                      ${
-                                        isUpcoming
-                                          ? "text-green-500"
-                                          : isBookingToday
-                                          ? "text-orange-500"
-                                          : "text-gray-400"
-                                      }
-                                    `}
-                                    />
-                                    <span>{timeString}</span>
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                  <div className="flex items-center gap-2">
-                                    <MapPinIcon
-                                      className={`
-                                      w-4 h-4 
-                                      ${
-                                        isUpcoming
-                                          ? "text-green-500"
-                                          : isBookingToday
-                                          ? "text-orange-500"
-                                          : "text-gray-400"
-                                      }
-                                    `}
-                                    />
-                                    <span
-                                      className={
-                                        isUpcoming || isBookingToday
-                                          ? "text-gray-700"
-                                          : "text-gray-500"
-                                      }
-                                    >
-                                      {booking.branch.name}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex items-center gap-2 md:col-span-2">
-                                    <span
-                                      className={`
-                                      font-medium 
-                                      ${
-                                        isUpcoming
-                                          ? "text-green-900"
-                                          : isBookingToday
-                                          ? "text-orange-900"
-                                          : "text-gray-600"
-                                      }
-                                    `}
-                                    >
-                                      {booking.package.title}
-                                    </span>
-                                    {booking.voucher?.code && (
-                                      <span
-                                        className={`
-                                        px-2 py-1 text-xs font-medium rounded
-                                        ${
-                                          isUpcoming
-                                            ? "bg-green-100 text-green-800"
-                                            : isBookingToday
-                                            ? "bg-orange-100 text-orange-800"
-                                            : "bg-gray-100 text-gray-600"
-                                        }
-                                      `}
-                                      >
-                                        {booking.voucher.code}
-                                      </span>
-                                    )}
-                                  </div>
+                              <div className="flex items-center justify-between gap-4 pl-[60px] sm:justify-end sm:pl-0">
+                                <span className="inline-flex items-center gap-2 rounded-lg bg-[#F7F3EB] px-3 py-2 text-sm font-semibold text-[#49372B]">
+                                  <ClockIcon className="h-4 w-4 text-[#8C6721]" />
+                                  {timeString}
+                                </span>
+                                <div className="min-w-[90px] text-right">
+                                  <p className="text-xs text-[#857568]">Total</p>
+                                  <p className="text-lg font-bold text-[#8C6721]">
+                                    ฿{Number(booking.totalPrice).toLocaleString("en-US", {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </p>
                                 </div>
                               </div>
                             </div>
 
-                            {/* Price positioned at bottom right with Thai Baht */}
-                            <div
-                              className={`
-                              absolute bottom-0 right-0 px-3 py-2 rounded-lg shadow-md border-2
-                              flex items-center gap-1 text-xl font-bold
-                              ${
-                                isUpcoming
-                                  ? "bg-green-50 border-green-300 text-green-700"
-                                  : isBookingToday
-                                  ? "bg-orange-50 border-orange-300 text-orange-700"
-                                  : "bg-gray-50 border-gray-300 text-gray-600"
-                              }
-                            `}
-                            >
-                              <span className="text-lg">฿</span>
-                              <span>{booking.totalPrice}</span>
-                            </div>
+                            <dl className="mt-4 grid gap-3 border-t border-[#F0E9DE] pt-4 sm:grid-cols-2 sm:gap-6">
+                              <div className="min-w-0">
+                                <dt className="text-xs text-[#8B7D70]">Service</dt>
+                                <dd className="mt-1 truncate text-sm font-medium text-[#49372B]" title={serviceName}>
+                                  {serviceName}
+                                </dd>
+                              </div>
+                              <div className="min-w-0">
+                                <dt className="text-xs text-[#8B7D70]">Branch</dt>
+                                <dd className="mt-1 flex items-center gap-1.5 truncate text-sm font-medium text-[#49372B]">
+                                  <MapPinIcon className="h-4 w-4 shrink-0 text-[#8C6721]" />
+                                  <span className="truncate">{branchName}</span>
+                                </dd>
+                              </div>
+                            </dl>
                           </div>
-                        </div>
+                        </article>
                       );
                     })}
                   </div>
