@@ -1,4 +1,4 @@
-FROM oven/bun:1 AS production-deps
+FROM oven/bun:1.3.14 AS production-deps
 
 WORKDIR /app
 
@@ -6,7 +6,7 @@ COPY package.json bun.lock ./
 
 RUN bun install --production --frozen-lockfile
 
-FROM oven/bun:1 AS builder
+FROM oven/bun:1.3.14 AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 RUN rm -rf .next
 RUN bun run build
 
-FROM oven/bun:1 AS runner
+FROM oven/bun:1.3.14 AS runner
 
 WORKDIR /app
 
