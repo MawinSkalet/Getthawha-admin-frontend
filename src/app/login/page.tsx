@@ -59,7 +59,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center bg-white p-1 sm:p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-1 sm:p-4">
         <div className="w-full max-w-md">
           {/* Clean Form Container */}
           <div className="relative bg-white border border-gray-200 rounded-xl p-8 shadow-lg">

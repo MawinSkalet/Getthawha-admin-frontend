@@ -5,6 +5,92 @@
   themes: light --default;
 }
 
+@theme {
+  --color-white: #fffdfa;
+  --color-gray-25: #fbf7ee;
+  --color-gray-50: #f7f3eb;
+  --color-gray-100: #f2ebdf;
+  --color-gray-200: #e9dfce;
+  --color-gray-300: #d8cbb7;
+  --color-gray-400: #b7a998;
+  --color-gray-500: #8b7d70;
+  --color-gray-600: #756457;
+  --color-gray-700: #49372b;
+  --color-gray-800: #3b261c;
+  --color-gray-900: #30231d;
+
+  --color-stone-50: #fffdfa;
+  --color-stone-100: #f7f3eb;
+  --color-stone-200: #e9dfce;
+  --color-stone-300: #d8cbb7;
+  --color-stone-400: #b7a998;
+  --color-stone-500: #8b7d70;
+  --color-stone-600: #756457;
+  --color-stone-700: #49372b;
+  --color-stone-800: #3b261c;
+  --color-stone-900: #30231d;
+
+  --color-blue-50: #fbf2dd;
+  --color-blue-100: #f4ead4;
+  --color-blue-200: #e8d5a9;
+  --color-blue-300: #d9bd79;
+  --color-blue-400: #be9641;
+  --color-blue-500: #a77921;
+  --color-blue-600: #8c6721;
+  --color-blue-700: #735318;
+  --color-blue-800: #5c4217;
+  --color-blue-900: #493515;
+
+  --color-amber-50: #fbf2dd;
+  --color-amber-100: #f4ead4;
+  --color-amber-200: #e8d5a9;
+  --color-amber-300: #d9bd79;
+  --color-amber-400: #be9641;
+  --color-amber-500: #a77921;
+  --color-amber-600: #8c6721;
+  --color-amber-700: #8c6721;
+  --color-amber-800: #735318;
+  --color-amber-900: #493515;
+}
+
+.admin-theme {
+  --color-base-100: #f7f3eb;
+  --color-base-200: #fffdfa;
+  --color-base-300: #e9dfce;
+  --color-base-content: #30231d;
+  --color-primary: #8c6721;
+  --color-primary-content: #fffdfa;
+  --color-secondary: #3b261c;
+  --color-secondary-content: #fbf7ee;
+  --color-neutral: #3b261c;
+  --color-neutral-content: #fbf7ee;
+
+  min-height: 100vh;
+  background: #f7f3eb;
+  color: #30231d;
+  font-family: "Roboto", sans-serif;
+  color-scheme: light;
+}
+
+.admin-theme h1,
+.admin-theme h2 {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.admin-theme input:not([type="checkbox"]):not([type="radio"]),
+.admin-theme select,
+.admin-theme textarea {
+  border-color: #d8cbb7;
+  color: #30231d;
+}
+
+.admin-theme input:focus,
+.admin-theme select:focus,
+.admin-theme textarea:focus {
+  border-color: #a77921;
+  outline-color: #a77921;
+}
+
 .roboto-600 {
   font-family: "Roboto", sans-serif;
   font-optical-sizing: auto;

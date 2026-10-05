@@ -42,7 +42,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <body className="antialiased vsc-initialized">
+      <body className="admin-theme antialiased vsc-initialized">
         <ClientProvider
           id={user?.id || ""}
           email={user?.email || ""}
