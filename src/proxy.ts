@@ -1,8 +1,8 @@
-// middleware.ts
+// proxy.ts
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   let isAuth = false;
   const token = req.cookies.get("admin")?.value;
   const pathname = req.nextUrl.pathname;
