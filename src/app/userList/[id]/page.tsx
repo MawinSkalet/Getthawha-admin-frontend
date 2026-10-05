@@ -1,45 +1,52 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import Image from "next/image";
 import {
   PhoneIcon,
   MapPinIcon,
   CalendarDaysIcon,
+  EnvelopeIcon,
 } from "@heroicons/react/24/outline";
 import AdminNavbar from "@/components/AdminNavBar";
+import UserAvatar from "@/components/UserAvatar";
 import { useParams } from "next/navigation";
-import { getUserById } from "@/hooks/useUser";
-import { getAllBooking } from "@/hooks/useBooking";
+import { getUserById, updateUserById } from "@/hooks/useUser";
 import type IUser from "@/interfaces/IUser";
 import type IBooking from "@/interfaces/IBooking";
 
-// Extend IUser for extra fields if needed
+type UserBooking = Omit<IBooking, "user">;
+
 interface User extends IUser {
-  email?: string;
-  phone?: string;
-  address?: string;
-  registered?: string;
+  bookings?: UserBooking[];
 }
 
 const UserData = () => {
   const params = useParams();
-  const userId = params.id as string;
+  const routeUserId = params.id as string;
+  const userId = (() => {
+    try {
+      return decodeURIComponent(routeUserId);
+    } catch {
+      return routeUserId;
+    }
+  })();
 
   // State management
   const [user, setUser] = useState<User | null>(null);
-  const [bookings, setBookings] = useState<IBooking[]>([]);
+  const [bookings, setBookings] = useState<UserBooking[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
 
   const filteredBookings = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return bookings.filter(
       (booking) =>
-        booking.package.title.toLowerCase().includes(query) ||
-        booking.branch.name.toLowerCase().includes(query) ||
+        (booking.package?.title || "Package unavailable").toLowerCase().includes(query) ||
+        (booking.branch?.name || "Branch unavailable").toLowerCase().includes(query) ||
         booking.date.includes(searchTerm)
     );
   }, [bookings, searchTerm]);
@@ -55,7 +62,9 @@ const UserData = () => {
         setError(result.message || "Failed to load user data");
         setUser(null);
       } else {
-        setUser(result as User);
+        const loadedUser = result as User;
+        setUser(loadedUser);
+        setBookings(Array.isArray(loadedUser.bookings) ? loadedUser.bookings : []);
         setError(null);
       }
     } catch {
@@ -67,54 +76,53 @@ const UserData = () => {
     }
   }, [userId]);
 
-  // Fetch user bookings using useBooking hook
-  const fetchUserBookings = useCallback(async (isCurrentRequest: () => boolean = () => true) => {
-    try {
-      const result = await getAllBooking(1, new AbortController().signal);
-      if (!isCurrentRequest()) return;
-      if ("message" in result) {
-        console.error("Failed to load bookings:", result.message);
-        setBookings([]);
-      } else {
-        setBookings((result as IBooking[]).filter((booking) => booking.user.id === userId));
-      }
-    } catch (error) {
-      if (!isCurrentRequest()) return;
-      console.error("Failed to load bookings:", error);
-      setBookings([]);
-    }
-  }, [userId]);
-
   // Fetch user data when the route id changes.
   useEffect(() => {
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
       void fetchUserData(() => active);
-      void fetchUserBookings(() => active);
     });
     return () => {
       active = false;
     };
-  }, [fetchUserData, fetchUserBookings]);
+  }, [fetchUserData]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
 
   const handleEditProfile = () => {
+    setProfileSaveError(null);
     setIsEditing(true);
   };
 
   const updateUserProfile = async (updatedData: Partial<User>) => {
     if (!user) return;
-    // For now, just update local state since we don't have update hook
-    setUser({ ...user, ...updatedData });
-    setIsEditing(false);
+    setIsSavingProfile(true);
+    setProfileSaveError(null);
+    try {
+      const result = await updateUserById(user.id, {
+        displayName: updatedData.displayName ?? user.displayName,
+        email: updatedData.email ?? user.email ?? "",
+        phone: updatedData.phone ?? user.phone ?? "",
+        address: updatedData.address ?? user.address ?? "",
+      });
+      if ("message" in result) {
+        setProfileSaveError(result.message || "Failed to update user profile");
+        return;
+      }
+      setUser((current) => current ? { ...current, ...result } : current);
+      setIsEditing(false);
+    } catch {
+      setProfileSaveError("Could not save the profile. Check the connection and try again.");
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const refreshBookings = () => {
-    fetchUserBookings();
+    fetchUserData();
   };
 
   // Calculate stats from bookings with relative date
@@ -139,8 +147,10 @@ const UserData = () => {
 
   const userStats = {
     total: bookings.length,
-    active: bookings.length, // All bookings are considered active for now
-    cancelled: 0, // No cancelled status in IBooking
+    active: bookings.filter((booking) => booking.status === "pending" || booking.status === "confirmed").length,
+    spent: bookings
+      .filter((booking) => booking.status === "confirmed" || booking.status === "completed")
+      .reduce((sum, booking) => sum + Number(booking.totalPrice || 0), 0),
     lastDate: getLastBookingDate(),
   };
 
@@ -189,6 +199,15 @@ const UserData = () => {
     );
   }
 
+  const latestBookingWithPhone = bookings.find((booking) => booking.customerPhone?.trim());
+  const latestBookingWithEmail = bookings.find((booking) => booking.customerEmail?.trim());
+  const latestBookingWithBranch = bookings.find((booking) => booking.branch?.name);
+  const profilePhone = user.phone?.trim() || latestBookingWithPhone?.customerPhone?.trim();
+  const profileEmail = user.email?.trim() || latestBookingWithEmail?.customerEmail?.trim();
+  const registeredDate = user.createdAt && !Number.isNaN(Date.parse(user.createdAt))
+    ? new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(user.createdAt))
+    : "Date unavailable";
+
   return (
     <>
       <AdminNavbar />
@@ -200,20 +219,19 @@ const UserData = () => {
           <div className="col-span-1">
             <div className="card bg-base-200 shadow-md">
               <div className="card-body items-center text-center">
-                <div className="avatar">
-                  <div className="w-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-                    <Image
-                      src={user.pictureUrl || "https://i.pravatar.cc/100?img=15"}
-                      alt="Profile"
-                      width={96}
-                      height={96}
-                      className="w-24 h-24 object-cover"
-                      unoptimized
-                    />
-                  </div>
-                </div>
+                <UserAvatar
+                  name={user.displayName}
+                  pictureUrl={user.pictureUrl}
+                  size="2xl"
+                  className="ring ring-primary ring-offset-2 ring-offset-base-100"
+                />
                 <h2 className="card-title mt-4">{user.displayName}</h2>
-                <p className="text-sm text-gray-500">{user.email}</p>
+                {profileEmail && (
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-[#75685B]">
+                    <EnvelopeIcon className="h-4 w-4 shrink-0" />
+                    <span className="break-all">{profileEmail}</span>
+                  </p>
+                )}
                 <div className="card-actions mt-4">
                   <button
                     className="btn btn-outline btn-sm"
@@ -226,18 +244,42 @@ const UserData = () => {
             </div>
 
             <div className="card bg-base-200 shadow-md mt-4">
-              <div className="card-body text-sm space-y-2">
-                <div className="flex items-center gap-2">
-                  <PhoneIcon className="w-5 h-5" />
-                  <span>{user.phone || "N/A"}</span>
+              <div className="card-body text-sm space-y-4">
+                <div className="flex items-start gap-3">
+                  <PhoneIcon className="mt-0.5 h-5 w-5 shrink-0 text-[#8A6418]" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#8B7D70]">Phone</p>
+                    <p className="break-words text-[#38281F]">{profilePhone || "Not provided"}</p>
+                    {!user.phone && latestBookingWithPhone && (
+                      <p className="mt-0.5 text-xs text-[#8B7D70]">From the latest booking</p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <MapPinIcon className="w-5 h-5" />
-                  <span>{user.address || "N/A"}</span>
+                <div className="flex items-start gap-3">
+                  <MapPinIcon className="mt-0.5 h-5 w-5 shrink-0 text-[#8A6418]" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#8B7D70]">Customer address</p>
+                    <p className="break-words text-[#38281F]">{user.address || "Not provided"}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <CalendarDaysIcon className="w-5 h-5" />
-                  <span>Registered: {user.registered || "N/A"}</span>
+                {latestBookingWithBranch?.branch && (
+                  <div className="flex items-start gap-3">
+                    <MapPinIcon className="mt-0.5 h-5 w-5 shrink-0 text-[#8A6418]" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#8B7D70]">Last booked branch</p>
+                      <p className="break-words text-[#38281F]">{latestBookingWithBranch.branch.name}</p>
+                      {latestBookingWithBranch.branch.address && (
+                        <p className="mt-0.5 break-words text-xs text-[#75685B]">{latestBookingWithBranch.branch.address}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-start gap-3">
+                  <CalendarDaysIcon className="mt-0.5 h-5 w-5 shrink-0 text-[#8A6418]" />
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#8B7D70]">Registered</p>
+                    <p className="text-[#38281F]">{registeredDate}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -257,13 +299,7 @@ const UserData = () => {
               <div className="stat bg-base-200 rounded-box">
                 <div className="stat-title">Total Spent</div>
                 <div className="stat-value text-sm">
-                  ฿
-                  {bookings
-                    .reduce(
-                      (sum, booking) => sum + Number(booking.totalPrice),
-                      0
-                    )
-                    .toLocaleString("en-US")}
+                  ฿{userStats.spent.toLocaleString("en-US")}
                 </div>
               </div>
               <div className="stat bg-base-200 rounded-box">
@@ -298,31 +334,53 @@ const UserData = () => {
                   <thead>
                     <tr>
                       <th>Date</th>
-                      <th>Duration (hrs)</th>
+                      <th>Customer</th>
+                      <th>Duration</th>
                       <th>Package</th>
                       <th>Branch</th>
+                      <th>Status</th>
                       <th>Total Price</th>
                       <th>Voucher</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredBookings.length > 0 ? (
-                      filteredBookings.map((booking) => (
-                        <tr key={booking.id}>
-                          <td>{new Date(booking.date).toLocaleDateString()}</td>
-                          <td>{booking.duration}</td>
-                          <td>{booking.package.title}</td>
-                          <td>{booking.branch.name}</td>
-                          <td>฿{booking.totalPrice.toLocaleString()}</td>
-                          <td>{booking.voucher?.code || "None"}</td>
-                        </tr>
-                      ))
+                      filteredBookings.map((booking) => {
+                        const duration = booking.package?.duration ?? booking.duration;
+                        return (
+                          <tr key={booking.id}>
+                            <td>{new Date(booking.date).toLocaleDateString()}</td>
+                            <td>
+                              <div>{booking.customerName || user.displayName}</div>
+                              {booking.customerPhone && (
+                                <div className="text-xs text-base-content/60">{booking.customerPhone}</div>
+                              )}
+                              {booking.customerEmail && (
+                                <div className="text-xs text-base-content/60">{booking.customerEmail}</div>
+                              )}
+                            </td>
+                            <td>{duration ? `${duration} min` : "—"}</td>
+                            <td>{booking.package?.title || "Package unavailable"}</td>
+                            <td>{booking.branch?.name || "Branch unavailable"}</td>
+                            <td>
+                              <span className={`badge ${
+                                booking.status === "confirmed" || booking.status === "completed"
+                                  ? "badge-success"
+                                  : booking.status === "cancelled"
+                                    ? "badge-error"
+                                    : "badge-warning"
+                              }`}>
+                                {booking.status}
+                              </span>
+                            </td>
+                            <td>฿{Number(booking.totalPrice || 0).toLocaleString("en-US")}</td>
+                            <td>{booking.voucher?.code || "None"}</td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
-                        <td
-                          colSpan={6}
-                          className="text-center py-4 text-gray-500"
-                        >
+                        <td colSpan={8} className="text-center py-4 text-gray-500">
                           {searchTerm
                             ? `No bookings found matching "${searchTerm}"`
                             : "No bookings found"}
@@ -351,9 +409,12 @@ const UserData = () => {
                     phone: formData.get("phone") as string,
                     address: formData.get("address") as string,
                   };
-                  updateUserProfile(updatedData);
+                  void updateUserProfile(updatedData);
                 }}
               >
+                {profileSaveError && (
+                  <div className="alert alert-error mb-4" role="alert">{profileSaveError}</div>
+                )}
                 <div className="space-y-4">
                   <div>
                     <label className="label">
@@ -374,7 +435,7 @@ const UserData = () => {
                     <input
                       type="email"
                       name="email"
-                      defaultValue={user.email}
+                      defaultValue={profileEmail}
                       className="input input-bordered w-full"
                     />
                   </div>
@@ -385,17 +446,17 @@ const UserData = () => {
                     <input
                       type="tel"
                       name="phone"
-                      defaultValue={user.phone}
+                      defaultValue={profilePhone}
                       className="input input-bordered w-full"
                     />
                   </div>
                   <div>
                     <label className="label">
-                      <span className="label-text">Address</span>
+                      <span className="label-text">Customer address</span>
                     </label>
                     <textarea
                       name="address"
-                      defaultValue={user.address}
+                      defaultValue={user.address ?? ""}
                       className="textarea textarea-bordered w-full"
                       rows={3}
                     />
@@ -409,8 +470,8 @@ const UserData = () => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-primary">
-                    Save Changes
+                  <button type="submit" className="btn btn-primary" disabled={isSavingProfile}>
+                    {isSavingProfile ? <span className="loading loading-spinner loading-sm" /> : "Save Changes"}
                   </button>
                 </div>
               </form>

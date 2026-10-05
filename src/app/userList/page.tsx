@@ -1,10 +1,10 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import { getAllUsers, USER_PAGE_LIMIT } from "@/hooks/useUser";
 import type IUser from "@/interfaces/IUser";
 import type IErrorResponse from "@interfaces/IErrorResponse";
 import AdminNavbar from "@/components/AdminNavBar";
+import UserAvatar from "@/components/UserAvatar";
 import Link from "next/link";
 
 const UserList: React.FC = () => {
@@ -187,22 +187,16 @@ const UserList: React.FC = () => {
               {filteredUsers.map((user) => (
                 <Link
                   key={user.id}
-                  href={`/userList/${user.id}`}
+                  href={`/userList/${encodeURIComponent(user.id)}`}
                   className="card bg-base-200 shadow-md hover:shadow-xl transition"
                 >
                   <div className="card-body items-center text-center">
-                    <div className="avatar mb-2">
-                      <div className="w-20 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-                        <Image
-                          src={user.pictureUrl || "https://i.pravatar.cc/100"}
-                          alt={user.displayName}
-                          width={80}
-                          height={80}
-                          className="w-20 h-20 object-cover"
-                          unoptimized
-                        />
-                      </div>
-                    </div>
+                    <UserAvatar
+                      name={user.displayName}
+                      pictureUrl={user.pictureUrl}
+                      size="xl"
+                      className="mb-2 ring ring-primary ring-offset-2 ring-offset-base-100"
+                    />
                     <h2 className="card-title">{user.displayName}</h2>
                   </div>
                 </Link>

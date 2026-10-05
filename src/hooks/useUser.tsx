@@ -28,7 +28,7 @@ async function getAllUsers(
 
 async function getUserById(userId: string, abortSignal: AbortSignal) {
   const response = await fetch(
-    `${getBaseUrl()}/admin/user/${userId}`,
+    `${getBaseUrl()}/admin/user/${encodeURIComponent(userId)}`,
     {
       method: "GET",
       signal: abortSignal,
@@ -47,6 +47,32 @@ async function getUserById(userId: string, abortSignal: AbortSignal) {
 
   const data: IUser = await response.json();
   return data;
+}
+
+async function updateUserById(
+  userId: string,
+  updates: Pick<IUser, "displayName" | "email" | "phone" | "address">
+): Promise<IUser | IErrorResponse> {
+  const response = await fetch(
+    `${getBaseUrl()}/admin/user/${encodeURIComponent(userId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(updates),
+    }
+  );
+
+  const data: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message =
+      data && typeof data === "object" && "message" in data && typeof data.message === "string"
+        ? data.message
+        : "Failed to update user profile";
+    return { status: "error", message };
+  }
+
+  return data as IUser;
 }
 
 async function searchUser(displayName: string, abortSignal: AbortSignal) {
@@ -68,4 +94,4 @@ async function searchUser(displayName: string, abortSignal: AbortSignal) {
   return data;
 }
 
-export { getAllUsers, getUserById, searchUser, USER_PAGE_LIMIT };
+export { getAllUsers, getUserById, updateUserById, searchUser, USER_PAGE_LIMIT };
