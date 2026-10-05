@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import Image from "next/image";
 import AdminNavbar from "@/components/AdminNavBar";
+import AdminImage from "@/components/AdminImage";
+import { getClientBranchImage } from "@/lib/clientImageFallbacks";
 import {
   getAllBranch,
   createBranch,
@@ -265,7 +266,8 @@ const BranchManagement = () => {
     if (
       formData.pictureUrl &&
       formData.pictureUrl.trim() !== "" &&
-      !formData.pictureUrl.startsWith("http")
+      !/^https?:\/\//i.test(formData.pictureUrl) &&
+      !formData.pictureUrl.startsWith("/")
     ) {
       newErrors.pictureUrl =
         "Please enter a valid URL starting with http or https";
@@ -304,7 +306,7 @@ const BranchManagement = () => {
 
     try {
       // Upload image first if new one selected
-      let finalPictureUrl = formData.pictureUrl;
+      let finalPictureUrl = formData.pictureUrl || getClientBranchImage(formData.name);
       if (selectedImage) {
         setIsUploadingImage(true);
         try {
@@ -525,20 +527,15 @@ const BranchManagement = () => {
                   <div key={branch.id} className="border-b border-gray-200 p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-3">
-                        {branch.pictureUrl ? (
-                          <Image
-                            src={branch.pictureUrl}
-                            alt={branch.name}
-                            width={48}
-                            height={48}
-                            className="w-12 h-12 rounded-lg object-cover"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <PhotoIcon className="w-6 h-6 text-gray-400" />
-                          </div>
-                        )}
+                        <AdminImage
+                          src={branch.pictureUrl}
+                          fallbackSrc={getClientBranchImage(branch.name)}
+                          alt={`${branch.name} branch`}
+                          width={48}
+                          height={48}
+                          sizes="48px"
+                          className="w-12 h-12 rounded-lg object-cover"
+                        />
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-medium text-gray-900 truncate">
                             {branch.name}
@@ -599,20 +596,15 @@ const BranchManagement = () => {
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center">
-                            {branch.pictureUrl ? (
-                              <Image
-                                src={branch.pictureUrl}
-                                alt={branch.name}
-                                width={40}
-                                height={40}
-                                className="w-10 h-10 rounded-lg object-cover mr-4"
-                                unoptimized
-                              />
-                            ) : (
-                              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mr-4">
-                                <PhotoIcon className="w-5 h-5 text-gray-400" />
-                              </div>
-                            )}
+                            <AdminImage
+                              src={branch.pictureUrl}
+                              fallbackSrc={getClientBranchImage(branch.name)}
+                              alt={`${branch.name} branch`}
+                              width={40}
+                              height={40}
+                              sizes="40px"
+                              className="w-10 h-10 rounded-lg object-cover mr-4"
+                            />
                             <div>
                               <div className="text-sm font-medium text-gray-900">
                                 {branch.name}
@@ -865,13 +857,14 @@ const BranchManagement = () => {
                         {imagePreview ||
                         (formData.pictureUrl && !selectedImage) ? (
                           <div className="relative inline-block">
-                            <Image
-                              src={imagePreview || formData.pictureUrl || ""}
+                            <AdminImage
+                              src={imagePreview || formData.pictureUrl}
+                              fallbackSrc={getClientBranchImage(formData.name)}
                               alt="Preview"
                               width={128}
                               height={128}
+                              sizes="128px"
                               className="mx-auto h-32 w-32 object-cover rounded-lg"
-                              unoptimized
                             />
                             <button
                               type="button"

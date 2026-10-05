@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import AdminNavbar from "@/components/AdminNavBar";
+import AdminImage from "@/components/AdminImage";
+import { getClientPackageImage } from "@/lib/clientImageFallbacks";
 import {
   deletePackageGroup,
   getAllPackages,
@@ -338,7 +339,9 @@ function PackageManagement() {
 
     setIsSaving(true);
     try {
-      let pictureUrl = formData.pictureUrl.trim() || null;
+      let pictureUrl =
+        formData.pictureUrl.trim() ||
+        getClientPackageImage(title, formData.category);
       if (selectedImage) pictureUrl = await uploadImage(selectedImage);
 
       const input: IPackageGroupInput = {
@@ -566,20 +569,15 @@ function PackageManagement() {
                       <article key={group.key} className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
                         <div className="flex flex-col gap-4 sm:flex-row">
                           <div className="flex min-w-0 flex-1 gap-3">
-                            {primary.pictureUrl ? (
-                              <Image
-                                src={primary.pictureUrl}
-                                alt=""
-                                width={72}
-                                height={72}
-                                unoptimized
-                                className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-400">
-                                <PhotoIcon className="h-8 w-8" />
-                              </div>
-                            )}
+                            <AdminImage
+                              src={primary.pictureUrl}
+                              fallbackSrc={getClientPackageImage(group.title, group.category)}
+                              alt={`${group.title} service`}
+                              width={72}
+                              height={72}
+                              sizes="72px"
+                              className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover"
+                            />
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <h3 className="text-base font-semibold text-stone-900">{group.title}</h3>
@@ -730,7 +728,7 @@ function PackageManagement() {
                   <label className="block text-sm font-medium text-stone-700">Photo <span className="font-normal text-stone-500">(optional)</span></label>
                   <div className="mt-1.5 flex min-h-28 items-center gap-3 rounded-xl border border-dashed border-stone-300 p-3">
                     {imagePreview ? (
-                      <Image src={imagePreview} alt="Menu item preview" width={88} height={72} unoptimized className="h-[72px] w-[88px] rounded-lg object-cover" />
+                      <AdminImage src={imagePreview} fallbackSrc={getClientPackageImage(editingGroup?.title || formData.title, formData.category)} alt="Menu item preview" width={88} height={72} sizes="88px" className="h-[72px] w-[88px] rounded-lg object-cover" />
                     ) : (
                       <div className="flex h-[72px] w-[88px] items-center justify-center rounded-lg bg-stone-100 text-stone-400"><PhotoIcon className="h-7 w-7" /></div>
                     )}

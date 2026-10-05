@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   XMarkIcon,
@@ -11,6 +10,7 @@ import {
   ChevronUpIcon,
 } from "@heroicons/react/24/outline";
 import AdminNavbar from "@/components/AdminNavBar";
+import UserAvatar from "@/components/UserAvatar";
 import { searchUser } from "@/hooks/useUser";
 import { getAllBranch } from "@/hooks/useBranch";
 import {
@@ -442,14 +442,7 @@ const AddBooking = () => {
                   {selectedUser ? (
                     <div className="bg-gray-50 border border-gray-300 rounded-lg p-3 flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <Image
-                          src={selectedUser.pictureUrl}
-                          alt={selectedUser.displayName || "User Avatar"}
-                          width={40}
-                          height={40}
-                          className="w-10 h-10 rounded-full object-cover"
-                          unoptimized
-                        />
+                        <UserAvatar name={selectedUser.displayName} pictureUrl={selectedUser.pictureUrl} size="md" />
                         <div>
                           <p className="font-medium text-gray-900">
                             {selectedUser.displayName}
@@ -484,14 +477,7 @@ const AddBooking = () => {
                               onClick={() => setSelectedUser(user)}
                               className="flex items-center space-x-3 p-3 hover:bg-gray-50 cursor-pointer"
                             >
-                              <Image
-                                src={user.pictureUrl}
-                                alt={user.displayName || "User Avatar"}
-                                width={32}
-                                height={32}
-                                className="w-8 h-8 rounded-full object-cover"
-                                unoptimized
-                              />
+                              <UserAvatar name={user.displayName} pictureUrl={user.pictureUrl} size="sm" />
                               <p className="font-medium text-gray-900">
                                 {user.displayName}
                               </p>
@@ -891,14 +877,7 @@ const AddBooking = () => {
                       className="border border-gray-200 rounded-lg bg-white p-4 shadow-sm"
                     >
                       <div className="flex items-center gap-3">
-                        <Image
-                          src={booking.user.pictureUrl}
-                          alt={booking.user.displayName || "User Avatar"}
-                          width={40}
-                          height={40}
-                          className="w-10 h-10 rounded-full object-cover"
-                          unoptimized
-                        />
+                        <UserAvatar name={booking.user.displayName} pictureUrl={booking.user.pictureUrl} size="md" />
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">
                             {booking.user.displayName}
@@ -1095,14 +1074,7 @@ const AddBooking = () => {
                         >
                           <td className="py-4 px-4">
                             <div className="flex items-center space-x-3">
-                              <Image
-                                src={booking.user.pictureUrl}
-                                alt={booking.user.displayName || "User Avatar"}
-                                width={32}
-                                height={32}
-                                className="w-8 h-8 rounded-full object-cover"
-                                unoptimized
-                              />
+                              <UserAvatar name={booking.user.displayName} pictureUrl={booking.user.pictureUrl} size="sm" />
                               <p className="font-medium text-gray-900">
                                 {booking.user.displayName}
                               </p>

@@ -2,8 +2,8 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { useDispatch, useSelector } from "react-redux";
+import UserAvatar from "@/components/UserAvatar";
 import { logout } from "@/hooks/useAuth";
 import type { RootState } from "@stores/store";
 import { setEmail, setId, setUsername } from "@stores/userSlice";
@@ -17,9 +17,6 @@ export default function AdminNavbar() {
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const displayName = username || "Admin User";
-  const avatarUrl =
-    "https://img.daisyui.com/images/profile/demo/idiotsandwich@192.webp";
-
   const handleLogout = async () => {
     if (isLoggingOut) {
       return;
@@ -337,16 +334,7 @@ export default function AdminNavbar() {
               role="button"
               className="btn btn-ghost btn-circle avatar text-[#FBF7EE] hover:bg-white/10"
             >
-              <div className="w-10 rounded-full overflow-hidden">
-                <Image
-                  alt={displayName}
-                  src={avatarUrl}
-                  width={40}
-                  height={40}
-                  className="w-10 h-10 object-cover"
-                  unoptimized
-                />
-              </div>
+              <UserAvatar name={displayName} size="md" className="border-0" />
             </div>
             <ul
               tabIndex={0}

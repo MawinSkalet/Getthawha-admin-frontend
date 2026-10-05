@@ -4,7 +4,7 @@ export default interface IBranch {
   address: string;
   googleMapUrl: string;
   phone: string;
-  pictureUrl?: string;
+  pictureUrl?: string | null;
   googleMapEmbedUrl?: string;
   description?: string;
 }

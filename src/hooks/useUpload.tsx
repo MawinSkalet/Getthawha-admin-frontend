@@ -1,4 +1,5 @@
 import { getBaseUrl } from "@/lib/api";
+import { resolveImageUrl } from "@/lib/imageUrl";
 
 export async function uploadImage(
   file: File,
@@ -53,18 +54,7 @@ export async function uploadImage(
 
   if (!url) throw new Error("Upload response missing url/filePath");
 
-  // If still relative (/uploads/...), prepend API base
-  if (!/^https?:\/\//i.test(url)) {
-    const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
-      /\/$/,
-      ""
-    );
-    if (url.startsWith("/")) {
-      url = `${base}${url}`;
-    } else {
-      url = `${base}/${url}`;
-    }
-  }
-
-  return url;
+  const resolvedUrl = resolveImageUrl(url);
+  if (!resolvedUrl) throw new Error("Upload response contained an invalid image URL");
+  return resolvedUrl;
 }

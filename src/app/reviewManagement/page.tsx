@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import AdminNavbar from "@/components/AdminNavBar";
+import UserAvatar from "@/components/UserAvatar";
 import {
   deleteReview,
   getReviews,
@@ -310,21 +310,12 @@ const ReviewManagement = () => {
                       <tr key={review.id} className="hover">
                         <td>
                           <div className="flex items-center gap-3">
-                            <div className="avatar">
-                              <div className="mask mask-squircle w-12 h-12">
-                                <Image
-                                  src={
-                                    review.user?.pictureUrl ||
-                                    "https://i.pravatar.cc/100"
-                                  }
-                                  alt={review.user?.displayName || "User"}
-                                  width={48}
-                                  height={48}
-                                  className="object-cover"
-                                  unoptimized
-                                />
-                              </div>
-                            </div>
+                            <UserAvatar
+                              name={review.user?.displayName || "Unknown User"}
+                              pictureUrl={review.user?.pictureUrl}
+                              size="lg"
+                              shape="square"
+                            />
                             <div>
                               <div className="font-semibold">
                                 {review.user?.displayName || "Unknown User"}
