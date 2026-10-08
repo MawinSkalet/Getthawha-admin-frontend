@@ -67,6 +67,7 @@ export default function AdminNavbar() {
       case "/reviewManagement":
         return "Review Management";
       default:
+        if (pathname.startsWith("/branch-performance/")) return "Branch Report";
         // Handle dynamic routes like /userList/[id]
         if (pathname.startsWith("/userList/")) {
           return "User Details";
@@ -95,7 +96,7 @@ export default function AdminNavbar() {
                 <Link href="/">
                   <div
                     className={`flex flex-row gap-2 ${
-                      pathname === "/" && "text-[#8A6418] font-semibold"
+                      (pathname === "/" || pathname.startsWith("/branch-performance/")) && "text-[#8A6418] font-semibold"
                     }`}
                   >
                     <svg

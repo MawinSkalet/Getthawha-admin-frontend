@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import LineChart from "./LineChart";
+import Link from "next/link";
 import useDashboard from "@/hooks/useDashboard";
 import { updateBookingById, type UpdateBookingRequest } from "@/hooks/useBooking";
 import type IBooking from "@/interfaces/IBooking";
@@ -271,6 +272,7 @@ const AdminDashboardPage = () => {
   ];
 
   const branches = branchPerformance.map((branch) => ({
+    id: branch.branchId,
     name: branch.branchName,
     value: Number(branch.totalBookings) || 0,
   }));
@@ -546,20 +548,20 @@ const AdminDashboardPage = () => {
           </article>
         </section>
 
-        <section aria-labelledby="branch-performance-heading" className="rounded-2xl border border-[#E9DFCE] bg-[#FFFDFA] p-5 shadow-[0_2px_12px_rgba(59,38,28,0.04)] sm:p-6">
+        <section id="branch-performance" aria-labelledby="branch-performance-heading" className="scroll-mt-24 rounded-2xl border border-[#E9DFCE] bg-[#FFFDFA] p-5 shadow-[0_2px_12px_rgba(59,38,28,0.04)] sm:p-6">
           <div className="mb-5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#A27A2C]">Locations</p>
               <h2 id="branch-performance-heading" className="mt-1 font-serif text-2xl font-semibold text-[#3B261C]">Branch performance</h2>
             </div>
-            <p className="text-sm text-[#857568]">Booking distribution across branches</p>
+            <p className="text-sm text-[#857568]">All-time bookings · Select a branch to explore</p>
           </div>
           {branches.length === 0 ? (
             <p className="rounded-xl bg-[#F8F4ED] px-4 py-8 text-center text-sm text-[#857568]">Branch data is not available yet.</p>
           ) : (
             <div className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2">
               {branches.map((branch) => (
-                <div key={branch.name}>
+                <Link key={branch.id} href={`/branch-performance/${encodeURIComponent(branch.id)}`} className="rounded-xl border border-[#E9DFCE] p-4 transition-colors hover:border-[#B9892C] hover:bg-[#FCF8EF] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8C6721]" aria-label={`View ${branch.name} branch report, ${branch.value} bookings`}>
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <span className="truncate text-sm font-medium text-[#49372B]">{branch.name}</span>
                     <span className="shrink-0 text-sm font-semibold tabular-nums text-[#6D5140]">{branch.value.toLocaleString()} bookings</span>
@@ -567,7 +569,8 @@ const AdminDashboardPage = () => {
                   <div className="h-2 overflow-hidden rounded-full bg-[#EFE8DD]">
                     <div className="h-full rounded-full bg-[#B9892C] transition-[width] duration-500" style={{ width: `${Math.max(branch.value > 0 ? 3 : 0, (branch.value / maxBranchValue) * 100)}%` }} />
                   </div>
-                </div>
+                  <span className="mt-3 block text-right text-xs font-semibold text-[#8C6721]">View details <span aria-hidden="true">›</span></span>
+                </Link>
               ))}
             </div>
           )}

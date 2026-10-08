@@ -1,0 +1,46 @@
+.chart {
+  min-width: 0;
+  border: 1px solid #e9dfce;
+  border-radius: 14px;
+  background: #fffdfa;
+  color: #30231d;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.chart h2 { font-family: Georgia, serif; font-size: 23px; line-height: 1.3; font-weight: 600; }
+.chart button { cursor: pointer; touch-action: manipulation; }
+.chart button:focus-visible { outline: 3px solid #b9892c; outline-offset: 3px; }
+.chart :global(.br-panel-head) { padding: 22px 24px 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.chart :global(.br-panel-head) p { color: #756457; font-size: 12px; margin-top: 5px; }
+.chart :global(.br-segmented) { display: flex; padding: 3px; border: 1px solid #e4dac9; border-radius: 7px; background: #f8f4ed; flex-shrink: 0; }
+.chart :global(.br-segmented) button { min-height: 29px; padding: 5px 12px; font-size: 12px; border-radius: 5px; color: #756457; }
+.chart :global(.br-segmented) button[aria-pressed="true"] { background: #3b261c; color: #fff9ed; }
+.chart :global(.br-chart-toolbar) { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; padding: 14px 24px 0; color: #756457; font-size: 12px; }
+.chart :global(.br-chart-toolbar) span:last-child { font-size: 11px; }
+.chart :global(.br-chart-body) { padding: 16px 22px 15px; }
+.chart :global(.br-chart-unit) { font-size: 12px; font-weight: 600; color: #625043; margin-bottom: 7px; }
+.chart :global(.br-chart-scroll) { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #c7b38f #f3ecdf; }
+.chart :global(.br-chart-scroll):focus-visible { outline: 2px solid #b9892c; outline-offset: 2px; }
+.chart :global(.br-chart-scroll) svg { display: block; max-width: none; }
+.chart :global(.br-chart-caption) { font-size: 12px; color: #756457; margin-top: 10px; }
+.chart :global(.br-chart-readout) { border-top: 1px solid #e9dfce; margin-top: 14px; padding-top: 12px; display: flex; flex-wrap: wrap; gap: 6px 16px; color: #625043; font-size: 12px; min-height: 32px; }
+.chart :global(.br-chart-readout) strong { font-weight: 600; color: #3b261c; }
+.chart :global(.br-chart-column) { cursor: pointer; outline: none; }
+.chart :global(.br-chart-hit) { fill: transparent; stroke: transparent; stroke-width: 1.5; }
+.chart :global(.br-chart-column):hover :global(.br-chart-hit), .chart :global(.br-chart-column):focus-visible :global(.br-chart-hit), .chart :global(.br-chart-column)[aria-pressed="true"] :global(.br-chart-hit) { fill: #f5ecd9; stroke: #b9892c; }
+.chart :global(.br-chart-bar) { fill: #b9892c; }
+.chart :global(.br-chart-column):hover :global(.br-chart-bar), .chart :global(.br-chart-column):focus-visible :global(.br-chart-bar) { fill: #8c6721; }
+.chart :global(.br-chart-value) { fill: #49372b; font-weight: 600; font-size: 14px; pointer-events: none; }
+.chart :global(.br-chart-tick) { fill: #625043; font-size: 12px; pointer-events: none; }
+@media (max-width: 1050px) {
+  .chart :global(.br-panel-head) { gap: 10px; padding-inline: 18px; flex-wrap: wrap; }
+}
+@media (max-width: 760px) {
+  .chart h2 { font-size: 21px; }
+  .chart :global(.br-panel-head) { padding-top: 20px; }
+  .chart :global(.br-segmented) button { padding: 5px 9px; font-size: 11px; }
+  .chart :global(.br-chart-body) { padding: 17px; }
+  .chart :global(.br-chart-toolbar) { padding-inline: 18px; }
+}

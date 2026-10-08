@@ -33,6 +33,7 @@ export async function proxy(req: NextRequest) {
     "/userList",
     "/branchManagement",
     "/packageManagement",
+    "/branch-performance",
   ];
 
   const isProtected = protectedRoutes.some(
@@ -61,5 +62,6 @@ export const config = {
     "/userList/:path*",
     "/branchManagement/:path*",
     "/packageManagement/:path*",
+    "/branch-performance/:path*",
   ],
 };
