@@ -1,0 +1,28 @@
+.performance { min-width: 0; color: #30231d; font-variant-numeric: tabular-nums; }
+.heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; }
+.heading h2 { font-family: Georgia, serif; font-size: 24px; font-weight: 600; color: #3b261c; }
+.heading p { color: #756457; font-size: 12px; margin-top: 4px; }
+.performance button { cursor: pointer; touch-action: manipulation; }
+.performance button:disabled { opacity: .45; cursor: default; }
+.performance button:focus-visible, .performance input:focus-visible { outline: 3px solid #b9892c; outline-offset: 3px; }
+.period { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+.ranges { display: flex; padding: 3px; border: 1px solid #e4dac9; border-radius: 7px; background: #fffdfa; }
+.ranges button { border-radius: 5px; padding: 7px 12px; font-size: 13px; color: #756457; min-height: 36px; }
+.ranges button[aria-pressed="true"] { color: #fff9ed; background: #3b261c; }
+.navigation { display: flex; gap: 6px; align-items: center; }
+.icon { width: 36px; height: 40px; display: inline-grid; place-items: center; border: 1px solid #d8cbb7; border-radius: 7px; background: #fffdfa; flex-shrink: 0; }
+.icon svg { width: 16px; height: 16px; }
+.current, .retry { height: 40px; padding: 0 12px; font-size: 12px; font-weight: 600; border: 1px solid #d8cbb7; border-radius: 7px; background: #fffdfa; color: #8c6721; }
+.icon:hover:not(:disabled), .current:hover, .retry:hover { background: #f4ead4; }
+.navigation input { height: 40px; width: 157px; padding: 0 9px; border: 1px solid #d8cbb7; border-radius: 7px; background: #fffdfa; font-size: 13px; }
+.navigation input[type="number"] { width: 90px; }
+.notice { padding: 8px 2px 0; font-size: 12px; color: #756457; line-height: 1.5; }
+.state { border: 1px solid #e9dfce; border-radius: 14px; background: #fffdfa; min-height: 390px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; padding: 24px; font-size: 14px; text-align: center; }
+@media (max-width: 600px) {
+  .heading h2 { font-size: 22px; }
+  .ranges { width: 100%; }
+  .ranges button { flex: 1; }
+  .navigation { width: 100%; gap: 5px; }
+  .navigation input { flex: 1; width: 0; min-width: 110px; }
+  .current { padding-inline: 8px; font-size: 11px; white-space: nowrap; }
+}

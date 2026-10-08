@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import LineChart from "./LineChart";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import DashboardPerformance from "./DashboardPerformance";
 import useDashboard from "@/hooks/useDashboard";
 import { updateBookingById, type UpdateBookingRequest } from "@/hooks/useBooking";
 import type IBooking from "@/interfaces/IBooking";
@@ -122,7 +122,7 @@ const isBooking = (value: unknown): value is IBooking =>
 const AdminDashboardPage = () => {
   const {
     statistics,
-    monthlyTrend,
+    performanceRevision,
     branchPerformance,
     activities,
     bookingsForDate,
@@ -135,18 +135,9 @@ const AdminDashboardPage = () => {
     loadRecentActivityByDate,
     loadBookingsForMonth,
     selectedActivityDate,
-    selectedTrendYear,
-    changeTrendYear,
   } = useDashboard();
 
-  const currentYear = new Date().getFullYear();
-  const trendYearOptions = useMemo(() => {
-    const years = new Set(Array.from({ length: 5 }, (_, index) => currentYear - index));
-    years.add(selectedTrendYear);
-    return [...years].sort((left, right) => right - left);
-  }, [currentYear, selectedTrendYear]);
   const hydrated = useHydrated();
-  const [trendYearDraft, setTrendYearDraft] = useState(String(selectedTrendYear));
   const [selectedDateDraft, setSelectedDateDraft] = useState(() => {
     const today = new Date();
     return formatDateParts(today.getFullYear(), today.getMonth() + 1, today.getDate());
@@ -206,12 +197,6 @@ const AdminDashboardPage = () => {
     return date.getFullYear() === selectedYear && date.getMonth() + 1 === selectedMonth && date.getDate() === selectedDay;
   };
 
-  const selectedTrendYearChange = (value: string) => {
-    setTrendYearDraft(value);
-    const year = Number(value);
-    if (Number.isInteger(year) && year >= 2000 && year <= 2200) changeTrendYear(year);
-  };
-
   const handleBookingStatusChange = async (
     booking: IBooking,
     status: IBooking["status"]
@@ -257,11 +242,6 @@ const AdminDashboardPage = () => {
     } finally {
       setUpdatingBookingId(null);
     }
-  };
-
-  const applyTrendYearDraft = () => {
-    const year = Number(trendYearDraft);
-    if (Number.isInteger(year) && year >= 2000 && year <= 2200) changeTrendYear(year);
   };
 
   const stats = [
@@ -480,41 +460,7 @@ const AdminDashboardPage = () => {
         </section>
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.85fr)]">
-          <article className="rounded-2xl border border-[#E9DFCE] bg-[#FFFDFA] p-5 shadow-[0_2px_12px_rgba(59,38,28,0.04)] sm:p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#A27A2C]">Performance</p>
-                <h2 className="mt-1 font-serif text-2xl font-semibold text-[#3B261C]">Booking trends</h2>
-                <p className="mt-1 text-sm text-[#857568]">Monthly bookings in {selectedTrendYear}.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <select
-                  aria-label="Trend year"
-                  value={trendYearDraft}
-                  onChange={(event) => selectedTrendYearChange(event.target.value)}
-                  className="h-10 rounded-lg border border-[#DCCFBC] bg-white px-3 text-sm text-[#49372B] outline-none focus:border-[#B9892C] focus:ring-2 focus:ring-[#B9892C]/20"
-                >
-                  {trendYearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
-                </select>
-                <input
-                  aria-label="Enter another trend year"
-                  inputMode="numeric"
-                  type="number"
-                  min="2000"
-                  max="2200"
-                  value={trendYearDraft}
-                  onChange={(event) => setTrendYearDraft(event.target.value)}
-                  onBlur={applyTrendYearDraft}
-                  onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); applyTrendYearDraft(); } }}
-                  className="h-10 w-24 rounded-lg border border-[#DCCFBC] bg-white px-3 text-sm text-[#49372B] outline-none focus:border-[#B9892C] focus:ring-2 focus:ring-[#B9892C]/20"
-                />
-                <button type="button" onClick={() => changeTrendYear(currentYear)} className="h-10 rounded-lg border border-[#E4DAC9] bg-white px-3 text-sm font-medium text-[#6D5140] hover:bg-[#F7F2E9]">This year</button>
-              </div>
-            </div>
-            <div className="mt-5 h-[300px] sm:h-[340px]">
-              <LineChart trend={monthlyTrend} loading={!monthlyTrend || monthlyTrend.length === 0} />
-            </div>
-          </article>
+          <DashboardPerformance refreshKey={performanceRevision} />
 
           <article className="rounded-2xl border border-[#E9DFCE] bg-[#FFFDFA] p-5 shadow-[0_2px_12px_rgba(59,38,28,0.04)] sm:p-6">
             <div className="flex items-start justify-between gap-3">

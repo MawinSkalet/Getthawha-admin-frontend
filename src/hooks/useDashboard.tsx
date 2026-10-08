@@ -13,11 +13,6 @@ type Statistics = {
   todayBookings: number;
 };
 
-type TrendItem = {
-  name: string;
-  totalBookings: number;
-};
-
 type BranchPerformanceItem = {
   branchId: string;
   branchName: string;
@@ -30,21 +25,6 @@ type ActivityItem = {
   title: string;
   time: Date;
 };
-
-const MONTH_NAMES: ReadonlyArray<string> = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
 
 // Helper to parse various timestamp fields; returns invalid Date if not present
 function parseItemDate(
@@ -218,30 +198,9 @@ export default function useDashboard() {
     todayBookings: 0,
   });
 
-  const [monthlyTrend, setMonthlyTrend] = useState<TrendItem[]>([
-    { name: "January", totalBookings: 0 },
-    { name: "February", totalBookings: 0 },
-    { name: "March", totalBookings: 0 },
-    { name: "April", totalBookings: 0 },
-    { name: "May", totalBookings: 0 },
-    { name: "June", totalBookings: 0 },
-    { name: "July", totalBookings: 0 },
-    { name: "August", totalBookings: 0 },
-    { name: "September", totalBookings: 0 },
-    { name: "October", totalBookings: 0 },
-    { name: "November", totalBookings: 0 },
-    { name: "December", totalBookings: 0 },
-  ]);
-
   const [branchPerformance, setBranchPerformance] = useState<
     BranchPerformanceItem[]
-  >([
-    {
-      branchId: "placeholder",
-      branchName: "Loading...",
-      totalBookings: 0,
-    },
-  ]);
+  >([]);
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [bookingsForDate, setBookingsForDate] = useState<IBooking[]>([]);
@@ -264,14 +223,6 @@ export default function useDashboard() {
   }, []);
 
   const [initialDate] = useState(() => new Date());
-  const [trendYear, setTrendYear] = useState<number>(
-    initialDate.getFullYear()
-  );
-  const trendYearRef = useRef(trendYear);
-  useEffect(() => {
-    trendYearRef.current = trendYear;
-  }, [trendYear]);
-
   const [selectedActivityDate, setSelectedActivityDate] = useState<{
     day: number;
     month: number;
@@ -313,48 +264,6 @@ export default function useDashboard() {
           totalUsers: toNumber(statsData.totalUsers),
           todayBookings: toNumber(statsData.todayBookings),
         });
-      }
-
-      const trendYearValue = Number(trendYearRef.current);
-      const trendYearQuery =
-        Number.isFinite(trendYearValue) && trendYearValue > 0
-          ? `?year=${Math.floor(trendYearValue)}`
-          : "";
-      const monthlyResponse = await fetch(
-        `${getBaseUrl()}/admin/dashboard/trending${trendYearQuery}`,
-        {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          cache: "no-store",
-          signal,
-        }
-      );
-      const monthlyJson: unknown = await monthlyResponse.json();
-      if (signal?.aborted || !mountedRef.current) return;
-      if (Array.isArray(monthlyJson)) {
-        const normalized: TrendItem[] = monthlyJson.map((item) => {
-          if (item && typeof item === "object") {
-            const record = item as Record<string, unknown>;
-            const total = toNumber(record.totalBookings);
-            if (typeof record.name === "string" && record.name) {
-              return { name: record.name, totalBookings: total };
-            }
-            if (record.month !== undefined) {
-              const monthIndex = Math.max(
-                0,
-                Math.min(11, Math.floor(toNumber(record.month, 1) - 1))
-              );
-              return {
-                name: MONTH_NAMES[monthIndex],
-                totalBookings: total,
-              };
-            }
-            return { name: "Unknown", totalBookings: total };
-          }
-          return { name: "Unknown", totalBookings: 0 };
-        });
-        setMonthlyTrend(normalized);
       }
 
       const branchResponse = await fetch(
@@ -440,26 +349,11 @@ export default function useDashboard() {
     };
   }, [startLoad]);
 
+  const [performanceRevision, setPerformanceRevision] = useState(0);
   const reload = useCallback(() => {
+    setPerformanceRevision((value) => value + 1);
     startLoad();
   }, [startLoad]);
-
-  const changeTrendYear = useCallback(
-    (yearInput: number | string) => {
-      const numericYear = Number(yearInput);
-      if (!Number.isFinite(numericYear) || numericYear <= 0) {
-        return;
-      }
-      const normalizedYear = Math.floor(numericYear);
-      if (trendYearRef.current === normalizedYear) {
-        return;
-      }
-      trendYearRef.current = normalizedYear;
-      setTrendYear(normalizedYear);
-      startLoad();
-    },
-    [startLoad]
-  );
 
   // Load recent registration activity for a specific date (day/month/year)
   // Assumes backend route: /admin/dashboard/recent-activity/year/:day/:month/:year
@@ -585,7 +479,7 @@ export default function useDashboard() {
 
   return {
     statistics,
-    monthlyTrend,
+    performanceRevision,
     branchPerformance,
     activities,
     bookingsForDate,
@@ -598,8 +492,6 @@ export default function useDashboard() {
     loadRecentActivityByDate,
     loadBookingsForMonth,
     selectedActivityDate,
-    selectedTrendYear: trendYear,
-    changeTrendYear,
   };
 }
 

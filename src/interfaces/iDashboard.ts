@@ -25,7 +25,7 @@ export type ActivityItem = {
 
 export type UseDashboardReturn = {
   statistics: DashboardStats;
-  monthlyTrend: TrendItem[];
+  performanceRevision: number;
   branchPerformance: BranchPerformanceItem[];
   activities: ActivityItem[];
   loadingActivities: boolean;
